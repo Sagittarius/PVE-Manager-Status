@@ -1,8 +1,8 @@
 #!/bin/bash
 # pve-manager-status.sh
-# Last Modified: 2025-10-18
+# Last Modified: 2025-10-28
 
-echo -e "\n🛠️ \033[1;33;41mPVE-Manager-Status v0.5.1 by MiKing233\033[0m"
+echo -e "\n🛠️ \033[1;33;41mPVE-Manager-Status v0.6.0 by MiKing233\033[0m"
 
 echo -e "为你的 ProxmoxVE 节点概要页面添加扩展的硬件监控信息"
 echo -e "OpenSource on GitHub (https://github.com/MiKing233/PVE-Manager-Status)\n"
@@ -19,11 +19,11 @@ if ! command -v pveversion &> /dev/null; then
     if [ -f /etc/os-release ]; then
         . /etc/os-release
         if [[ "$ID" != "debian" && "$ID_LIKE" != *"debian"* ]]; then
-            echo -e "⛔ 检测到当前系统非 Debian 发行版, 执行终止!"
+            echo -e "⛔ 检测到当前系统非 Debian 发行版, 停止执行!"
             echo && exit 1
         fi
     fi
-    echo -e "⛔ 未检测到 ProxmoxVE 环境, 执行终止!"
+    echo -e "⛔ 未检测到 ProxmoxVE 环境, 停止执行!"
     echo && exit 1
 fi
 
@@ -142,11 +142,11 @@ fi
 
 rm -f /tmp/sensors
 
-# 配置必要的执行权限 (优化版替代危险的 chmod +s)
+# 配置必要的执行权限 (替代危险的 chmod +s)
 echo -e "\n🔩 配置必要的执行权限..."
-echo -e "允许 www-data 用户以 sudo 权限执行部分监控命令"
+echo -e "允许 www-data 用户以 sudo 权限执行特定监控命令"
 SUDOERS_FILE="/etc/sudoers.d/pve-manager-status"
-# 首先移除可能被添加的 SUID 权限设置, 以防曾经运行过其它监控脚本
+# 首先移除可能被添加的 SUID 权限设置, 以防曾经被其它监控脚本添加
 binaries=(/usr/sbin/nvme /usr/bin/iostat /usr/bin/sensors /usr/bin/cpupower /usr/sbin/smartctl /usr/sbin/turbostat)
 for bin in "${binaries[@]}"; do
     if [[ -e $bin && -u $bin ]]; then
@@ -183,7 +183,7 @@ if visudo -c -f "${TMP_SUDOERS}" &> /dev/null; then
     chmod 0440 "${SUDOERS_FILE}"
     echo "已成功配置 sudo 规则于: ${SUDOERS_FILE} 🔐"
 else
-    echo "sudoers 规则语法错误, 操作终止! ⛔"
+    echo "⛔ sudoers 规则语法错误, 操作终止!"
     echo -e "\n--- DEBUG INFO START ---"
     echo "生成的 sudoers 规则内容如下:"
     echo "--------------------------------------------------"
@@ -204,10 +204,11 @@ modprobe msr && echo msr > /etc/modules-load.d/turbostat-msr.conf
 
 
 
-echo -e "\n📝 开始执行修改..."
+####################   概要页面监控功能实现   ####################
 
-####################   修改node.pm   ####################
+echo -e "\n📋 添加概要页面硬件监控信息..."
 
+# 修改 node.pm 文件前置步骤
 tmpf1=$(mktemp /tmp/pve-manager-status.XXXXXX) || exit 1
 cat > "$tmpf1" << 'EOF'
 
@@ -220,22 +221,51 @@ cat > "$tmpf1" << 'EOF'
         $res->{cpufreq} = $cpufreqs . $threadfreqs;
 
         $res->{sensors} = `sudo sensors`;
+EOF
 
-        my $nvme0_info = `sudo smartctl -a /dev/nvme0 | grep -E "Model Number|(?=Total|Namespace)[^:]+Capacity|Temperature:|Available Spare:|Percentage|Data Unit|Power Cycles|Power On Hours|Unsafe Shutdowns|Integrity Errors"`;
-        my $nvme0_io = `sudo iostat -d -x -k 1 1 | grep -E "^nvme0"`;
-        $res->{nvme0_status} = $nvme0_info . $nvme0_io;
+for x in {0..9}; do
+    for dev in "/dev/nvme${x}" "/dev/nvme${x}n1"; do
+        if [ -b "$dev" ]; then
+            cat >> "$tmpf1" << EOF
+
+        my \$nvme${x}_info = \`sudo smartctl -a $dev | grep -E "Model Number|(?=Total|Namespace)[^:]+Capacity|Temperature:|Available Spare:|Percentage|Data Unit|Power Cycles|Power On Hours|Unsafe Shutdowns|Integrity Errors"\`;
+        my \$nvme${x}_io = \`sudo iostat -d -x -k 1 1 | grep -E "^${dev##*/}"\`;
+        \$res->{nvme${x}_status} = \$nvme${x}_info . \$nvme${x}_io;
+EOF
+            break
+        fi
+    done
+done
+
+cat >> "$tmpf1" << 'EOF'
 
         $res->{sata_status} = `sudo smartctl -a /dev/sd? | grep -E "Device Model|Capacity|Power_On_Hours|Temperature"`;
 EOF
 
-echo "正在修改: $nodes..."
+# 在实际修改前检查锚点文本是否存在, 若不存在则报错退出停止修改
+if ! grep -q 'PVE::pvecfg::version_text' "$nodes"; then
+    echo "⛔ 在 $nodes 中未找到锚点, 操作终止!"
+    rm -f "$tmpf1"
+    echo -e "⚠️ 锚点'PVE::pvecfg::version_text', 文件可能已更新或与当前版本不兼容\n" && exit 1
+fi
+
+# 应用更改
 sed -i '/PVE::pvecfg::version_text/ r '"$tmpf1"'' "$nodes"
+
+# 验证修改是否成功
+if grep -q 'cpupower' "$nodes"; then
+    echo "已完成修改: $nodes ✅"
+else
+    echo "⛔ 检查对 $nodes 添加的内容未生效!"
+    rm -f "$tmpf1"
+    echo -e "⚠️ 请检查文件权限或手动检查文件内容\n" && exit 1
+fi
+
 rm -f "$tmpf1"
 
 
 
-####################   修改pvemanagerlib.js   ####################
-
+# 修改 pvemanagerlib.js 文件前置步骤
 tmpf2=$(mktemp /tmp/pve-manager-status.XXXXXX) || exit 1
 cat > "$tmpf2" << 'EOF'
         {
@@ -527,12 +557,18 @@ cat > "$tmpf2" << 'EOF'
                 return groupedFreqs.join('<br>');
             }
         },
+EOF
+
+for x in {0..9}; do
+    for dev in "/dev/nvme${x}" "/dev/nvme${x}n1"; do
+        if [ -b "$dev" ]; then
+            cat >> "$tmpf2" << EOF
         {
-            itemId: 'nvme0-status',
+            itemId: 'nvme${x}-status',
             colspan: 2,
             printBar: false,
-            title: gettext('NVMe硬盘'),
-            textField: 'nvme0_status',
+            title: gettext('NVMe${x}硬盘'),
+            textField: 'nvme${x}_status',
             renderer:function(value){
                 function getSsdLifeColor(life) {
                     const lifeNum = parseFloat(life);
@@ -542,35 +578,35 @@ cat > "$tmpf2" << 'EOF'
                 }
                 function colorizeSsdModel(model, life) {
                     const color = getSsdLifeColor(life);
-                    return `<span style="color:${color}; font-weight:bold;">${model}</span>`;
+                    return \`<span style="color:\${color}; font-weight:bold;">\${model}</span>\`;
                 }
                 function colorizeSsdLife(life) {
                     const color = getSsdLifeColor(life);
-                    return `<span style="color:${color}; font-weight:bold;">${life}%</span>`;
+                    return \`<span style="color:\${color}; font-weight:bold;">\${life}%</span>\`;
                 }
                 function colorizeSsdTemp(temp) {
                     const tempNum = parseFloat(temp);
-                    if (tempNum < 50) return `<span style="color:green; font-weight:bold;">${temp}°C</span>`;
-                    if (tempNum < 70) return `<span style="color:orange; font-weight:bold;">${temp}°C</span>`;
-                    return `<span style="color:red; font-weight:bold;">${temp}°C</span>`;
+                    if (tempNum < 50) return \`<span style="color:green; font-weight:bold;">\${temp}°C</span>\`;
+                    if (tempNum < 70) return \`<span style="color:orange; font-weight:bold;">\${temp}°C</span>\`;
+                    return \`<span style="color:red; font-weight:bold;">\${temp}°C</span>\`;
                 }
                 function colorizeSsdLoad(load) {
                     const loadNum = parseFloat(load);
-                    if (loadNum < 50) return `<span style="color:green; font-weight:bold;">${load}%</span>`;
-                    if (loadNum < 80) return `<span style="color:orange; font-weight:bold;">${load}%</span>`;
-                    return `<span style="color:red; font-weight:bold;">${load}%</span>`;
+                    if (loadNum < 50) return \`<span style="color:green; font-weight:bold;">\${load}%</span>\`;
+                    if (loadNum < 80) return \`<span style="color:orange; font-weight:bold;">\${load}%</span>\`;
+                    return \`<span style="color:red; font-weight:bold;">\${load}%</span>\`;
                 }
                 function colorizeIoSpeed(speed) {
                     const speedNum = parseFloat(speed);
-                    if (speedNum > 1000) return `<span style="color:red; font-weight:bold;">${speed}MB/s</span>`;
-                    if (speedNum < 100) return `<span style="color:green; font-weight:bold;">${speed}MB/s</span>`;
-                    return `<span style="color:orange; font-weight:bold;">${speed}MB/s</span>`;
+                    if (speedNum > 1000) return \`<span style="color:red; font-weight:bold;">\${speed}MB/s</span>\`;
+                    if (speedNum < 100) return \`<span style="color:green; font-weight:bold;">\${speed}MB/s</span>\`;
+                    return \`<span style="color:orange; font-weight:bold;">\${speed}MB/s</span>\`;
                 }
                 function colorizeIoLatency(latency) {
                     const latencyNum = parseFloat(latency);
-                    if (latencyNum > 10) return `<span style="color:red; font-weight:bold;">${latency}ms</span>`;
-                    if (latencyNum < 1) return `<span style="color:green; font-weight:bold;">${latency}ms</span>`;
-                    return `<span style="color:orange; font-weight:bold;">${latency}ms</span>`;
+                    if (latencyNum > 10) return \`<span style="color:red; font-weight:bold;">\${latency}ms</span>\`;
+                    if (latencyNum < 1) return \`<span style="color:green; font-weight:bold;">\${latency}ms</span>\`;
+                    return \`<span style="color:orange; font-weight:bold;">\${latency}ms</span>\`;
                 }
                 if (value.length > 0) {
                     value = value.replace(/Â/g, '');
@@ -684,15 +720,15 @@ cat > "$tmpf2" << 'EOF'
                             if (nvme.Integrity_Errors.length > 0) {
                                 for (const nvmeIntegrity_Error of nvme.Integrity_Errors) {
                                     if (nvmeIntegrity_Error != 0) {
-                                        output += ` (`;
-                                        output += `0E: ${nvmeIntegrity_Error}-故障！`;
+                                        output += ' (';
+                                        output += \`0E: \${nvmeIntegrity_Error}-故障！\`;
                                         if (nvme.Available_Spares.length > 0) {
                                             output += ', ';
                                             for (const Available_Spare of nvme.Available_Spares) {
-                                                output += `备用空间: ${Available_Spare}`;
+                                                output += \`备用空间: \${Available_Spare}\`;
                                             }
                                         }
-                                        output += `)`;
+                                        output += ')';
                                     }
                                 }
                             }
@@ -701,18 +737,18 @@ cat > "$tmpf2" << 'EOF'
                         if (nvme.Capacitys.length > 0) {
                             output += ' | ';
                             for (const nvmeCapacity of nvme.Capacitys) {
-                                output += `容量: ${nvmeCapacity.replace(/ |,/gm, '')}`;
+                                output += \`容量: \${nvmeCapacity.replace(/ |,/gm, '')}\`;
                             }
                         }
                         output += '<br>';
 
                         if (nvme.Useds.length > 0) {
                             for (const nvmeUsed of nvme.Useds) {
-                                output += `寿命: ${colorizeSsdLife(100-Number(nvmeUsed))} `;
+                                output += \`寿命: \${colorizeSsdLife(100-Number(nvmeUsed))} \`;
                                 if (nvme.Reads.length > 0) {
                                     output += '(';
                                     for (const nvmeRead of nvme.Reads) {
-                                        output += `已读${nvmeRead.replace(/ |,/gm, '')}`;
+                                        output += \`已读 \${nvmeRead.replace(/ |,/gm, '')}\`;
                                         output += ')';
                                     }
                                 }
@@ -721,7 +757,7 @@ cat > "$tmpf2" << 'EOF'
                                     output = output.slice(0, -1);
                                     output += ', ';
                                     for (const nvmeWritten of nvme.Writtens) {
-                                        output += `已写${nvmeWritten.replace(/ |,/gm, '')}`;
+                                        output += \`已写 \${nvmeWritten.replace(/ |,/gm, '')}\`;
                                     }
                                     output += ')';
                                 }
@@ -731,14 +767,14 @@ cat > "$tmpf2" << 'EOF'
                         if (nvme.Temperatures.length > 0) {
                             output += ' | ';
                             for (const nvmeTemperature of nvme.Temperatures) {
-                                output += `温度: ${colorizeSsdTemp(nvmeTemperature)}`;
+                                output += \`温度: \${colorizeSsdTemp(nvmeTemperature)}\`;
                             }
                         }
 
                         if (nvme.utils.length > 0) {
                             output += ' | ';
                             for (const nvme_util of nvme.utils) {
-                                output += `负载: ${colorizeSsdLoad(nvme_util)}`;
+                                output += \`负载: \${colorizeSsdLoad(nvme_util)}\`;
                             }
                         }
                         output += '<br>';
@@ -749,14 +785,15 @@ cat > "$tmpf2" << 'EOF'
                                 output += '读-';
                                 if (nvme.r_kBs.length > 0) {
                                     for (const nvme_r_kB of nvme.r_kBs) {
-                                        var nvme_r_mB = `${nvme_r_kB}` / 1024;
+                                        var nvme_r_mB = \`\${nvme_r_kB}\` / 1024;
                                         nvme_r_mB = nvme_r_mB.toFixed(2);
-                                        output += `速度${colorizeIoSpeed(nvme_r_mB)}`;
+                                        output += \`速度 \${colorizeIoSpeed(nvme_r_mB)}\`;
                                     }
                                 }
                                 if (nvme.r_awaits.length > 0) {
+                                    output += ', ';
                                     for (const nvme_r_await of nvme.r_awaits) {
-                                        output += `, 延迟${colorizeIoLatency(nvme_r_await)}`;
+                                        output += \`延迟 \${colorizeIoLatency(nvme_r_await)}\`;
                                     }
                                 }
                             }
@@ -768,14 +805,15 @@ cat > "$tmpf2" << 'EOF'
                                 output += '写-';
                                 if (nvme.w_kBs.length > 0) {
                                     for (const nvme_w_kB of nvme.w_kBs) {
-                                        var nvme_w_mB = `${nvme_w_kB}` / 1024;
+                                        var nvme_w_mB = \`\${nvme_w_kB}\` / 1024;
                                         nvme_w_mB = nvme_w_mB.toFixed(2);
-                                        output += `速度${colorizeIoSpeed(nvme_w_mB)}`;
+                                        output += \`速度 \${colorizeIoSpeed(nvme_w_mB)}\`;
                                     }
                                 }
                                 if (nvme.w_awaits.length > 0) {
+                                    output += ', ';
                                     for (const nvme_w_await of nvme.w_awaits) {
-                                        output += `, 延迟${colorizeIoLatency(nvme_w_await)}`;
+                                        output += \`延迟 \${colorizeIoLatency(nvme_w_await)}\`;
                                     }
                                 }
                             }
@@ -784,13 +822,13 @@ cat > "$tmpf2" << 'EOF'
                         if (nvme.Cycles.length > 0) {
                             output += '<br>';
                             for (const nvmeCycle of nvme.Cycles) {
-                                output += `通电: ${nvmeCycle.replace(/ |,/gm, '')}次`;
+                                output += \`通电: \${nvmeCycle.replace(/ |,/gm, '')}次\`;
                             }
 
                             if (nvme.Shutdowns.length > 0) {
                                 output += ', ';
                                 for (const nvmeShutdown of nvme.Shutdowns) {
-                                    output += `不安全断电${nvmeShutdown.replace(/ |,/gm, '')}次`;
+                                    output += \`不安全断电\${nvmeShutdown.replace(/ |,/gm, '')}次\`;
                                     break
                                 }
                             }
@@ -798,7 +836,7 @@ cat > "$tmpf2" << 'EOF'
                             if (nvme.Hours.length > 0) {
                                 output += ', ';
                                 for (const nvmeHour of nvme.Hours) {
-                                    output += `累计${nvmeHour.replace(/ |,/gm, '')}小时`;
+                                    output += \`累计\${nvmeHour.replace(/ |,/gm, '')}小时\`;
                                 }
                             }
                         }
@@ -806,10 +844,17 @@ cat > "$tmpf2" << 'EOF'
                     return output;
 
                 } else {
-                    return `提示: 未安装 NVMe硬盘 或已直通 NVMe 控制器!`;
+                    return '提示: 未安装 NVMe硬盘 或已直通 NVMe 控制器!';
                 }
             },
         },
+EOF
+            break
+        fi
+    done
+done
+
+cat >> "$tmpf2" << 'EOF'
         {
             itemId: 'sata_status',
             colspan: 2,
@@ -900,16 +945,89 @@ cat > "$tmpf2" << 'EOF'
         },
 EOF
 
-echo -e "正在修改: $pvemanagerlib..."
+# 计算插入行号
 ln=$(sed -n '/pveversion/,+10{/},/{=;q}}' $pvemanagerlib)
+
+# 在实际修改前检查行号是否有效, 若无效则报错退出停止修改
+if ! [[ "$ln" =~ ^[0-9]+$ ]]; then
+    echo "⛔ 在 $pvemanagerlib 中计算插入位置失败, 操作终止!"
+    rm -f "$tmpf2"
+    echo -e "⚠️ 锚点'pveversion', 文件可能已更新或与当前版本不兼容\n" && exit 1
+fi
+
+# 应用更改
 sed -i "${ln}r $tmpf2" "$pvemanagerlib"
+
+# 验证修改是否成功
+if grep -q "itemId: 'cpupower'" "$pvemanagerlib"; then
+    echo "已完成修改: $pvemanagerlib ✅"
+else
+    echo "⛔ 检查对 $pvemanagerlib 添加的内容未生效!"
+    rm -f "$tmpf2"
+    echo -e "⚠️ 请检查文件权限或手动检查文件内容\n" && exit 1
+fi
+
 rm -f "$tmpf2"
+
+
+
+####################   zh-CN 本地化   ####################
+
+echo -e "\n🌏 添加缺失的 zh-CN 翻译..."
+
+pve_major_ver=$(echo "$pvever" | cut -d'.' -f1)
+
+case "$pve_major_ver" in
+    "8")
+        # PVE 8.x: 为 Network traffic 图表添加中文 fieldTitles
+        if ! grep -q "fields: \['netin', 'netout'\]" "$pvemanagerlib"; then
+            echo -e "⛔ 未找到 Network traffic 的锚点, 操作终止!"
+            echo -e "⚠️ 锚点 \"fields: ['netin', 'netout']\", 文件可能已更新或与当前版本不兼容\n" && exit 1
+        else
+            if grep -q "fieldTitles: \[gettext('传入'), gettext('发送')\]" "$pvemanagerlib"; then
+                echo -e "Network traffic 的中文翻译已存在, 跳过该步骤 ➡️"
+            else
+                sed -i "s/^\( *\)fields: \['netin', 'netout'\],/&\n\1fieldTitles: [gettext('传入'), gettext('发送')],/" "$pvemanagerlib"
+                if grep -q "fieldTitles: \[gettext('传入'), gettext('发送')\]" "$pvemanagerlib"; then
+                    echo -e "已添加 PVE 8.x 缺失的翻译: 网络流量 图表上的 (传入)和(发送)按钮 ✅"
+                else
+                    echo -e "⛔ 检查对 Network traffic 部分的中文 fieldTitles 修改未生效!"
+                    echo -e "⚠️ 请检查文件权限或手动检查文件内容\n" && exit 1
+                fi
+            fi
+        fi
+
+        # PVE 8.x: 为 Disk IO 图表添加中文 fieldTitles
+        if ! grep -q "fields: \['diskread', 'diskwrite'\]" "$pvemanagerlib"; then
+            echo -e "⛔ 未找到 Disk IO 的锚点, 操作终止!"
+            echo -e "⚠️ 锚点 \"fields: ['diskread', 'diskwrite']\", 文件可能已更新或与当前版本不兼容\n" && exit 1
+        else
+            if grep -q "fieldTitles: \[gettext('读取'), gettext('写入')\]" "$pvemanagerlib"; then
+                echo -e "Disk IO 的中文翻译已存在, 跳过该步骤 ➡️"
+            else
+                sed -i "s/^\( *\)fields: \['diskread', 'diskwrite'\],/&\n\1fieldTitles: [gettext('读取'), gettext('写入')],/" "$pvemanagerlib"
+                if grep -q "fieldTitles: \[gettext('读取'), gettext('写入')\]" "$pvemanagerlib"; then
+                    echo -e "已添加 PVE 8.x 缺失的翻译: 磁盘IO 图表上的 (读取)和(写入)按钮 ✅"
+                else
+                    echo -e "⛔ 检查对 Disk IO 部分的中文 fieldTitles 修改未生效!"
+                    echo -e "⚠️ 请检查文件权限或手动检查文件内容\n" && exit 1
+                fi
+            fi
+        fi
+        ;;
+    "9")
+        echo -e "PVE 9.X 的 zh-CN 本地化将在未来的版本中支持, 跳过该步骤 ➡️"
+        ;;
+    *)
+        echo -e "\n⚠️ 不支持的PVE版本($pvever), 跳过 zh-CN 本地化."
+        ;;
+esac
 
 
 
 ####################   调整页面高度   ####################
 
-echo -e "正在调整页面高度: $pvemanagerlib..."
+echo -e "\n🎚️ 调整修改后的页面高度..."
 
 # 基于模型: 每行内容 17px, 每个模块段落间额外 7px 间距
 calculate_height_increase() {
@@ -943,16 +1061,12 @@ calculate_height_increase() {
         total_lines=$((total_lines + core_freq_lines))
     fi
 
-    # itemId:nvme0-status(NVMe硬盘): 无固定行
-    module_count=$((module_count + 1))
+    # itemId:nvme-status(NVMe硬盘): 固定4行每个
     local nvme_count=$(lsblk -d -o NAME | grep -c 'nvme[0-9]')
     if [ "$nvme_count" -gt 0 ]; then
-        # 第1个NVMe硬盘占4行, 后续每个占5行(含1行间距)
-        local nvme_lines=$((4 + (nvme_count - 1) * 5))
+        local nvme_lines=$((nvme_count * 4))
         total_lines=$((total_lines + nvme_lines))
-    else
-        # 不存在NVMe硬盘时, 占用1行显示提示信息
-        total_lines=$((total_lines + 1))
+        module_count=$((module_count + nvme_count))
     fi
 
     # itemId:sata_status(SATA硬盘): 无固定行
