@@ -23,7 +23,7 @@ PVE-Manager-Status 是一款强大的开源脚本工具, 通过实时基于动�
 要使用本项目, 请通过 SSH 以 root 身份连接你的 Proxmox VE 节点, 并执行以下操作:
 
 ```
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/MiKing233/PVE-Manager-Status/master/pve-manager-status.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/Sagittarius/PVE-Manager-Status/master/pve-manager-status.sh)"
 ```
 
 执行完毕后, 使用 Ctrl + F5 刷新浏览器 Proxmox VE Web 管理页面缓存.
@@ -31,7 +31,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/MiKing233/PVE-Manager-St
 若此时可以看到 PVE-Manager-Status 带来的扩展的硬件监控信息, 但无法看到风扇转速信息, 你还需要继续执行以下步骤来安裝 IT87 系列传感器驱动包:
 
 ```
-wget -O /root/it87-dkms_1.0.63-1_all.deb https://raw.githubusercontent.com/MiKing233/PVE-Manager-Status/master/it87-dkms_1.0.63-1_all.deb && apt install /root/it87-dkms_1.0.63-1_all.deb && rm -f /root/it87-dkms_1.0.63-1_all.deb
+wget -O /root/it87-dkms_1.0.63-1_all.deb https://raw.githubusercontent.com/Sagittarius/PVE-Manager-Status/master/it87-dkms_1.0.63-1_all.deb && apt install /root/it87-dkms_1.0.63-1_all.deb && rm -f /root/it87-dkms_1.0.63-1_all.deb
 ```
 
 执行完毕后, 重启系统并再次检查风扇转速信息.
@@ -77,8 +77,8 @@ apt install --reinstall pve-manager
 
 ## 贡献者
 
-<a href="https://github.com/MiKing233/PVE-Manager-Status/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=MiKing233/PVE-Manager-Status" />
+<a href="https://github.com/Sagittarius/PVE-Manager-Status/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=Sagittarius/PVE-Manager-Status" />
 </a>
 
 ## 许可证
@@ -93,6 +93,6 @@ apt install --reinstall pve-manager
 - https://donate.mknetwork.net
 
 ### 如果你喜欢这个项目, 请不要吝啬您的 Star 🌟
-[![Stargazers over time](https://starchart.cc/MiKing233/PVE-Manager-Status.svg?variant=adaptive)](https://starchart.cc/MiKing233/PVE-Manager-Status)
+[![Stargazers over time](https://starchart.cc/Sagittarius/PVE-Manager-Status.svg?variant=adaptive)](https://starchart.cc/Sagittarius/PVE-Manager-Status)
 
 Enjoy a better Proxmox VE experience!

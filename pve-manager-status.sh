@@ -5,7 +5,7 @@
 echo -e "\n🛠️ \033[1;33;41mPVE-Manager-Status v0.6.0 by MiKing233\033[0m"
 
 echo -e "为你的 ProxmoxVE 节点概要页面添加扩展的硬件监控信息"
-echo -e "OpenSource on GitHub (https://github.com/MiKing233/PVE-Manager-Status)\n"
+echo -e "OpenSource on GitHub (https://github.com/Sagittarius/PVE-Manager-Status)\n"
 
 # 先决条件执行判断
 # 执行用户判断, 必须为 root 用户执行
@@ -164,7 +164,7 @@ TURBOSTAT_PATH=$(command -v turbostat)
 echo -e "正在配置 sudoers 规则内容并进行语法检查..."
 read -r -d '' SUDOERS_CONTENT << EOM
 # Allow www-data user (PVE Web GUI) to run specific hardware monitoring commands
-# This file is managed by pve-manager-status.sh (https://github.com/MiKing233/PVE-Manager-Status)
+# This file is managed by pve-manager-status.sh (https://github.com/Sagittarius/PVE-Manager-Status)
 
 www-data ALL=(root) NOPASSWD: ${SENSORS_PATH}
 www-data ALL=(root) NOPASSWD: ${SMARTCTL_PATH} -a /dev/*
