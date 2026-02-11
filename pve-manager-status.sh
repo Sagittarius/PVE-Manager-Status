@@ -275,20 +275,40 @@ cat > "$tmpf2" << 'EOF'
             title: gettext('CPU能耗'),
             textField: 'cpupower',
             renderer:function(value){
+                const palette = {
+                    low: '#3A7D6A',
+                    mid: '#C28B2C',
+                    high: '#C45B5B',
+                    text: '#4B5563',
+                    muted: '#6B7280'
+                };
+                const sep = '<span style="color:#9CA3AF;"> | </span>';
+                function iconBolt(color) {
+                    return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:${color};fill:none;stroke-width:1.8;vertical-align:-2px;margin-right:4px"><path d="M9 1L3 9h4l-1 6 6-8H8l1-6z"/></svg>`;
+                }
+                function iconGauge(color) {
+                    return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:${color};fill:none;stroke-width:1.8;vertical-align:-2px;margin-right:4px"><path d="M3 12a5 5 0 0 1 10 0"/><path d="M8 8l3-2"/><circle cx="8" cy="8" r="1"/></svg>`;
+                }
+                function label(text) {
+                    return `<span style="color:${palette.text}; font-weight:600;">${text}</span>`;
+                }
+                function wrap(icon, labelText, valueHtml) {
+                    return `<span style="display:inline-flex;align-items:center;gap:4px;">${icon}${label(labelText)}<span style="color:${palette.muted};">:</span> ${valueHtml}</span>`;
+                }
                 function colorizeCpuMode(mode) {
-                    if (mode === 'powersave') return `<span style="color:green; font-weight:bold;">${mode}</span>`;
-                    if (mode === 'performance') return `<span style="color:red; font-weight:bold;">${mode}</span>`;
-                    return `<span style="color:orange; font-weight:bold;">${mode}</span>`;
+                    if (mode === 'powersave') return `<span style="color:${palette.low}; font-weight:600;">${mode}</span>`;
+                    if (mode === 'performance') return `<span style="color:${palette.high}; font-weight:600;">${mode}</span>`;
+                    return `<span style="color:${palette.mid}; font-weight:600;">${mode}</span>`;
                 }
                 function colorizeCpuPower(power) {
                     const powerNum = parseFloat(power);
-                    if (powerNum < 20) return `<span style="color:green; font-weight:bold;">${power} W</span>`;
-                    if (powerNum < 50) return `<span style="color:orange; font-weight:bold;">${power} W</span>`;
-                    return `<span style="color:red; font-weight:bold;">${power} W</span>`;
+                    if (powerNum < 20) return `<span style="color:${palette.low}; font-weight:600;">${power} W</span>`;
+                    if (powerNum < 50) return `<span style="color:${palette.mid}; font-weight:600;">${power} W</span>`;
+                    return `<span style="color:${palette.high}; font-weight:600;">${power} W</span>`;
                 }
                 const w0 = value.split('\n')[0].split(' ')[0];
                 const w1 = value.split('\n')[1].split(' ')[0];
-                return `CPU电源模式: ${colorizeCpuMode(w0)} | CPU功耗: ${colorizeCpuPower(w1)}`
+                return `${wrap(iconGauge(palette.text), 'CPU电源模式', colorizeCpuMode(w0))}${sep}${wrap(iconBolt(palette.text), 'CPU功耗', colorizeCpuPower(w1))}`
             }
         },
         {
@@ -298,16 +318,31 @@ cat > "$tmpf2" << 'EOF'
             title: gettext('CPU频率'),
             textField: 'cpufreq',
             renderer:function(value){
+                const palette = {
+                    low: '#3A7D6A',
+                    mid: '#C28B2C',
+                    high: '#C45B5B',
+                    text: '#4B5563',
+                    muted: '#6B7280'
+                };
+                const sep = '<span style="color:#9CA3AF;"> | </span>';
+                function iconActivity(color) {
+                    return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:${color};fill:none;stroke-width:1.8;vertical-align:-2px;margin-right:4px"><polyline points="1 8 4 8 6 4 9 12 11 8 15 8"/></svg>`;
+                }
+                function label(text) {
+                    return `<span style="color:${palette.text}; font-weight:600;">${text}</span>`;
+                }
                 function colorizeCpuFreq(freq) {
                     const freqNum = parseFloat(freq);
-                    if (freqNum < 1500) return `<span style="color:green; font-weight:bold;">${freq} MHz</span>`;
-                    if (freqNum < 3000) return `<span style="color:orange; font-weight:bold;">${freq} MHz</span>`;
-                    return `<span style="color:red; font-weight:bold;">${freq} MHz</span>`;
+                    if (freqNum < 1500) return `<span style="color:${palette.low}; font-weight:600;">${freq} MHz</span>`;
+                    if (freqNum < 3000) return `<span style="color:${palette.mid}; font-weight:600;">${freq} MHz</span>`;
+                    return `<span style="color:${palette.high}; font-weight:600;">${freq} MHz</span>`;
                 }
                 const f0 = value.match(/cpu MHz.*?([\d]+)/)[1];
                 const f1 = value.match(/CPU min MHz.*?([\d]+)/)[1];
                 const f2 = value.match(/CPU max MHz.*?([\d]+)/)[1];
-                return `CPU实时: ${colorizeCpuFreq(f0)} | 最小: ${f1} MHz | 最大: ${f2} MHz `
+                const muted = `<span style="color:${palette.muted}; font-weight:600;">`;
+                return `${iconActivity(palette.text)}${label('CPU实时')} ${colorizeCpuFreq(f0)}${sep}${label('最小')} ${muted}${f1} MHz</span>${sep}${label('最大')} ${muted}${f2} MHz</span>`
             }
         },
         {
@@ -317,29 +352,57 @@ cat > "$tmpf2" << 'EOF'
             title: gettext('传感器'),
             textField: 'sensors',
             renderer: function(value) {
+                const palette = {
+                    low: '#3A7D6A',
+                    mid: '#C28B2C',
+                    high: '#C45B5B',
+                    text: '#4B5563',
+                    muted: '#6B7280'
+                };
+                function iconChip(color) {
+                    return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:${color};fill:none;stroke-width:1.6;vertical-align:-2px;margin-right:4px"><rect x="4" y="4" width="8" height="8" rx="1"/><path d="M2 6h2M2 10h2M12 6h2M12 10h2M6 2v2M10 2v2M6 12v2M10 12v2"/></svg>`;
+                }
+                function iconGpu(color) {
+                    return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:${color};fill:none;stroke-width:1.6;vertical-align:-2px;margin-right:4px"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6 13h4"/></svg>`;
+                }
+                function iconBoard(color) {
+                    return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:${color};fill:none;stroke-width:1.6;vertical-align:-2px;margin-right:4px"><rect x="3" y="3" width="10" height="10" rx="1"/><circle cx="6" cy="6" r="1"/><circle cx="10" cy="10" r="1"/><path d="M8 3v3M3 8h3"/></svg>`;
+                }
+                function iconFan(color) {
+                    return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:${color};fill:none;stroke-width:1.6;vertical-align:-2px;margin-right:4px"><circle cx="8" cy="8" r="1"/><path d="M8 3c2 0 3 2 1 3M13 8c0 2-2 3-3 1M8 13c-2 0-3-2-1-3M3 8c0-2 2-3 3-1"/></svg>`;
+                }
+                const icons = {
+                    cpu: iconChip(palette.text),
+                    gpu: iconGpu(palette.text),
+                    board: iconBoard(palette.text),
+                    fan: iconFan(palette.text)
+                };
+                function label(text) {
+                    return `<span style="color:${palette.text}; font-weight:600;">${text}</span>`;
+                }
                 function colorizeCpuTemp(temp) {
                     const tempNum = parseFloat(temp);
-                    if (tempNum < 60) return `<span style="color:green; font-weight:bold;">${temp}°C</span>`;
-                    if (tempNum < 80) return `<span style="color:orange; font-weight:bold;">${temp}°C</span>`;
-                    return `<span style="color:red; font-weight:bold;">${temp}°C</span>`;
+                    if (tempNum < 60) return `<span style="color:${palette.low}; font-weight:600;">${temp}°C</span>`;
+                    if (tempNum < 80) return `<span style="color:${palette.mid}; font-weight:600;">${temp}°C</span>`;
+                    return `<span style="color:${palette.high}; font-weight:600;">${temp}°C</span>`;
                 }
                 function colorizeGpuTemp(temp) {
                     const tempNum = parseFloat(temp);
-                    if (tempNum < 60) return `<span style="color:green; font-weight:bold;">${temp}°C</span>`;
-                    if (tempNum < 80) return `<span style="color:orange; font-weight:bold;">${temp}°C</span>`;
-                    return `<span style="color:red; font-weight:bold;">${temp}°C</span>`;
+                    if (tempNum < 60) return `<span style="color:${palette.low}; font-weight:600;">${temp}°C</span>`;
+                    if (tempNum < 80) return `<span style="color:${palette.mid}; font-weight:600;">${temp}°C</span>`;
+                    return `<span style="color:${palette.high}; font-weight:600;">${temp}°C</span>`;
                 }
                 function colorizeAcpiTemp(temp) {
                     const tempNum = parseFloat(temp);
-                    if (tempNum < 60) return `<span style="color:green; font-weight:bold;">${temp}°C</span>`;
-                    if (tempNum < 80) return `<span style="color:orange; font-weight:bold;">${temp}°C</span>`;
-                    return `<span style="color:red; font-weight:bold;">${temp}°C</span>`;
+                    if (tempNum < 60) return `<span style="color:${palette.low}; font-weight:600;">${temp}°C</span>`;
+                    if (tempNum < 80) return `<span style="color:${palette.mid}; font-weight:600;">${temp}°C</span>`;
+                    return `<span style="color:${palette.high}; font-weight:600;">${temp}°C</span>`;
                 }
                 function colorizeFanRpm(rpm) {
                     const rpmNum = parseFloat(rpm);
-                    if (rpmNum < 1500) return `<span style="color:green; font-weight:bold;">${rpm}转/分钟</span>`;
-                    if (rpmNum < 3000) return `<span style="color:orange; font-weight:bold;">${rpm}转/分钟</span>`;
-                    return `<span style="color:red; font-weight:bold;">${rpm}转/分钟</span>`;
+                    if (rpmNum < 1500) return `<span style="color:${palette.low}; font-weight:600;">${rpm}转/分钟</span>`;
+                    if (rpmNum < 3000) return `<span style="color:${palette.mid}; font-weight:600;">${rpm}转/分钟</span>`;
+                    return `<span style="color:${palette.high}; font-weight:600;">${rpm}转/分钟</span>`;
                 }
                 value = value.replace(/Â/g, '');
                 let data = [];
@@ -357,7 +420,7 @@ cat > "$tmpf2" << 'EOF'
                     }
                     let cores = cpu[2].matchAll(/^Core (\d+):\s*\+([^°C ]+).*$/gm);
                     for (const core of cores) {
-                        var corecombi = `核心 ${core[1]}: ${colorizeCpuTemp(core[2])}`
+                        var corecombi = `${label('核心 ' + core[1])}: ${colorizeCpuTemp(core[2])}`
                         data[cpuNumber]['cores'].push(corecombi);
                     }
                 }
@@ -366,7 +429,7 @@ cat > "$tmpf2" << 'EOF'
                 for (const [i, cpu] of data.entries()) {
                     if (cpu.packages.length > 0) {
                         for (const packageTemp of cpu.packages) {
-                            output += `CPU ${i}: ${colorizeCpuTemp(packageTemp)} | `;
+                            output += `${icons.cpu}${label('CPU ' + i)}: ${colorizeCpuTemp(packageTemp)} | `;
                         }
                     }
 
@@ -384,7 +447,7 @@ cat > "$tmpf2" << 'EOF'
 
                         for (const [k, gpu] of data.entries()) {
                             if (gpu.edges.length > 0) {
-                                output += '核显: ';
+                                output += `${icons.gpu}${label('核显')}: `;
                                 for (const edgeTemp of gpu.edges) {
                                     output += `${colorizeGpuTemp(edgeTemp)}, `;
                                 }
@@ -410,7 +473,7 @@ cat > "$tmpf2" << 'EOF'
 
                         for (const [k, acpitz] of data.entries()) {
                             if (acpitz.acpisensors.length > 0) {
-                                output += '主板: ';
+                                output += `${icons.board}${label('主板')}: `;
                                 for (const acpiTemp of acpitz.acpisensors) {
                                     output += `${colorizeAcpiTemp(acpiTemp)}, `;
                                 }
@@ -460,7 +523,7 @@ cat > "$tmpf2" << 'EOF'
 
                         for (const [j, FunState] of data.entries()) {
                             if (FunState.cpufans.length > 0 || FunState.motherboardfans.length > 0 || FunState.pumpfans.length > 0 || FunState.systemfans.length > 0) {
-                                output += '风扇: ';
+                                output += `${icons.fan}${label('风扇')}: `;
                                 if (FunState.cpufans.length > 0) {
                                     output += 'CPU-';
                                     for (const cpufan_value of FunState.cpufans) {
@@ -493,7 +556,7 @@ cat > "$tmpf2" << 'EOF'
                                 output = output.slice(0, -2);
                                 output += ' | ';
                             } else if (FunState.cpufans.length == 0 && FunState.pumpfans.length == 0 && FunState.systemfans.length == 0) {
-                                output += ' 风扇: 停转';
+                                output += ` ${icons.fan}${label('风扇')}: 停转`;
                                 output += ' | ';
                             } else {
                                 output = output.slice(0, -2);
@@ -530,18 +593,27 @@ cat > "$tmpf2" << 'EOF'
             title: gettext('核心频率'),
             textField: 'cpufreq',
             renderer: function(value) {
+                const palette = {
+                    low: '#3A7D6A',
+                    mid: '#C28B2C',
+                    high: '#C45B5B',
+                    text: '#4B5563'
+                };
+                function iconChip(color) {
+                    return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:${color};fill:none;stroke-width:1.6;vertical-align:-2px;margin-right:4px"><rect x="4" y="4" width="8" height="8" rx="1"/><path d="M2 6h2M2 10h2M12 6h2M12 10h2M6 2v2M10 2v2M6 12v2M10 12v2"/></svg>`;
+                }
                 function colorizeCpuFreq(freq) {
                     const freqNum = parseFloat(freq);
-                    if (freqNum < 1500) return `<span style="color:green; font-weight:bold;">${freq} MHz</span>`;
-                    if (freqNum < 3000) return `<span style="color:orange; font-weight:bold;">${freq} MHz</span>`;
-                    return `<span style="color:red; font-weight:bold;">${freq} MHz</span>`;
+                    if (freqNum < 1500) return `<span style="color:${palette.low}; font-weight:600;">${freq} MHz</span>`;
+                    if (freqNum < 3000) return `<span style="color:${palette.mid}; font-weight:600;">${freq} MHz</span>`;
+                    return `<span style="color:${palette.high}; font-weight:600;">${freq} MHz</span>`;
                 }
                 const freqMatches = value.matchAll(/^cpu MHz\s*:\s*([\d\.]+)/gm);
                 const frequencies = [];
 
                 for (const match of freqMatches) {
                     const coreNum = frequencies.length + 1;
-                    frequencies.push(`线程 ${coreNum}: ${colorizeCpuFreq(parseInt(match[1]))}`);
+                    frequencies.push(`<span style="color:${palette.text}; font-weight:600;">线程 ${coreNum}</span>: ${colorizeCpuFreq(parseInt(match[1]))}`);
                 }
 
                 if (frequencies.length === 0) {
@@ -551,6 +623,9 @@ cat > "$tmpf2" << 'EOF'
                 const groupedFreqs = [];
                 for (let i = 0; i < frequencies.length; i += 4) {
                     const group = frequencies.slice(i, i + 4);
+                    if (group.length > 0) {
+                        group[0] = `${iconChip(palette.text)}${group[0]}`;
+                    }
                     groupedFreqs.push(group.join(' | '));
                 }
 
@@ -570,43 +645,72 @@ for x in {0..9}; do
             title: gettext('NVMe${x}硬盘'),
             textField: 'nvme${x}_status',
             renderer:function(value){
+                const palette = {
+                    low: '#3A7D6A',
+                    mid: '#C28B2C',
+                    high: '#C45B5B',
+                    text: '#4B5563',
+                    muted: '#6B7280'
+                };
+                const sep = '<span style="color:#9CA3AF;"> | </span>';
+                function iconDisk(color) {
+                    return '<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:' + color + ';fill:none;stroke-width:1.6;vertical-align:-2px;margin-right:4px"><rect x="2" y="3" width="12" height="10" rx="2"/><circle cx="11" cy="8" r="1"/></svg>';
+                }
+                function iconGauge(color) {
+                    return '<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:' + color + ';fill:none;stroke-width:1.6;vertical-align:-2px;margin-right:4px"><path d="M3 12a5 5 0 0 1 10 0"/><path d="M8 8l3-2"/><circle cx="8" cy="8" r="1"/></svg>';
+                }
+                function iconThermo(color) {
+                    return '<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:' + color + ';fill:none;stroke-width:1.6;vertical-align:-2px;margin-right:4px"><path d="M9 3a2 2 0 0 0-4 0v6a3 3 0 1 0 4 0V3z"/><path d="M7 6v4"/></svg>';
+                }
+                function iconActivity(color) {
+                    return '<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:' + color + ';fill:none;stroke-width:1.6;vertical-align:-2px;margin-right:4px"><polyline points="1 8 4 8 6 4 9 12 11 8 15 8"/></svg>';
+                }
+                function iconClock(color) {
+                    return '<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:' + color + ';fill:none;stroke-width:1.6;vertical-align:-2px;margin-right:4px"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l3 2"/></svg>';
+                }
+                function label(text) {
+                    return '<span style="color:' + palette.text + '; font-weight:600;">' + text + '</span>';
+                }
+                function muted(text) {
+                    return '<span style="color:' + palette.muted + '; font-weight:600;">' + text + '</span>';
+                }
                 function getSsdLifeColor(life) {
                     const lifeNum = parseFloat(life);
-                    if (lifeNum < 50) return 'red';
-                    if (lifeNum < 80) return 'orange';
-                    return 'green';
+                    if (lifeNum < 50) return palette.high;
+                    if (lifeNum < 80) return palette.mid;
+                    return palette.low;
                 }
                 function colorizeSsdModel(model, life) {
                     const color = getSsdLifeColor(life);
-                    return \`<span style="color:\${color}; font-weight:bold;">\${model}</span>\`;
+                    return \`<span style="color:\${color}; font-weight:600;">\${model}</span>\`;
                 }
                 function colorizeSsdLife(life) {
                     const color = getSsdLifeColor(life);
-                    return \`<span style="color:\${color}; font-weight:bold;">\${life}%</span>\`;
+                    return \`<span style="color:\${color}; font-weight:600;">\${life}%</span>\`;
                 }
                 function colorizeSsdTemp(temp) {
                     const tempNum = parseFloat(temp);
-                    if (tempNum < 50) return \`<span style="color:green; font-weight:bold;">\${temp}°C</span>\`;
-                    if (tempNum < 70) return \`<span style="color:orange; font-weight:bold;">\${temp}°C</span>\`;
-                    return \`<span style="color:red; font-weight:bold;">\${temp}°C</span>\`;
+                    if (tempNum < 50) return \`<span style="color:\${palette.low}; font-weight:600;">\${temp}°C</span>\`;
+                    if (tempNum < 70) return \`<span style="color:\${palette.mid}; font-weight:600;">\${temp}°C</span>\`;
+                    return \`<span style="color:\${palette.high}; font-weight:600;">\${temp}°C</span>\`;
                 }
                 function colorizeSsdLoad(load) {
                     const loadNum = parseFloat(load);
-                    if (loadNum < 50) return \`<span style="color:green; font-weight:bold;">\${load}%</span>\`;
-                    if (loadNum < 80) return \`<span style="color:orange; font-weight:bold;">\${load}%</span>\`;
-                    return \`<span style="color:red; font-weight:bold;">\${load}%</span>\`;
+                    if (loadNum < 50) return \`<span style="color:\${palette.low}; font-weight:600;">\${load}%</span>\`;
+                    if (loadNum < 80) return \`<span style="color:\${palette.mid}; font-weight:600;">\${load}%</span>\`;
+                    return \`<span style="color:\${palette.high}; font-weight:600;">\${load}%</span>\`;
                 }
                 function colorizeIoSpeed(speed) {
                     const speedNum = parseFloat(speed);
-                    if (speedNum > 1000) return \`<span style="color:red; font-weight:bold;">\${speed}MB/s</span>\`;
-                    if (speedNum < 100) return \`<span style="color:green; font-weight:bold;">\${speed}MB/s</span>\`;
-                    return \`<span style="color:orange; font-weight:bold;">\${speed}MB/s</span>\`;
+                    if (speedNum > 1000) return \`<span style="color:\${palette.high}; font-weight:600;">\${speed}MB/s</span>\`;
+                    if (speedNum < 100) return \`<span style="color:\${palette.low}; font-weight:600;">\${speed}MB/s</span>\`;
+                    return \`<span style="color:\${palette.mid}; font-weight:600;">\${speed}MB/s</span>\`;
                 }
                 function colorizeIoLatency(latency) {
                     const latencyNum = parseFloat(latency);
-                    if (latencyNum > 10) return \`<span style="color:red; font-weight:bold;">\${latency}ms</span>\`;
-                    if (latencyNum < 1) return \`<span style="color:green; font-weight:bold;">\${latency}ms</span>\`;
-                    return \`<span style="color:orange; font-weight:bold;">\${latency}ms</span>\`;
+                    if (latencyNum > 10) return \`<span style="color:\${palette.high}; font-weight:600;">\${latency}ms</span>\`;
+                    if (latencyNum < 1) return \`<span style="color:\${palette.low}; font-weight:600;">\${latency}ms</span>\`;
+                    return \`<span style="color:\${palette.mid}; font-weight:600;">\${latency}ms</span>\`;
                 }
                 if (value.length > 0) {
                     value = value.replace(/Â/g, '');
@@ -715,7 +819,7 @@ for x in {0..9}; do
                         if (i > 0) output += '<br><br>';
 
                         if (nvme.Models.length > 0) {
-                            output += colorizeSsdModel(nvme.Models[0], 100 - Number(nvme.Useds[0]));
+                            output += iconDisk(palette.text) + colorizeSsdModel(nvme.Models[0], 100 - Number(nvme.Useds[0]));
 
                             if (nvme.Integrity_Errors.length > 0) {
                                 for (const nvmeIntegrity_Error of nvme.Integrity_Errors) {
@@ -735,16 +839,16 @@ for x in {0..9}; do
                         }
 
                         if (nvme.Capacitys.length > 0) {
-                            output += ' | ';
+                            output += sep;
                             for (const nvmeCapacity of nvme.Capacitys) {
-                                output += \`容量: \${nvmeCapacity.replace(/ |,/gm, '')}\`;
+                                output += label('容量') + ': ' + muted(nvmeCapacity.replace(/ |,/gm, ''));
                             }
                         }
                         output += '<br>';
 
                         if (nvme.Useds.length > 0) {
                             for (const nvmeUsed of nvme.Useds) {
-                                output += \`寿命: \${colorizeSsdLife(100-Number(nvmeUsed))} \`;
+                                output += iconGauge(palette.text) + label('寿命') + ': ' + colorizeSsdLife(100-Number(nvmeUsed)) + ' ';
                                 if (nvme.Reads.length > 0) {
                                     output += '(';
                                     for (const nvmeRead of nvme.Reads) {
@@ -765,22 +869,22 @@ for x in {0..9}; do
                         }
 
                         if (nvme.Temperatures.length > 0) {
-                            output += ' | ';
+                            output += sep;
                             for (const nvmeTemperature of nvme.Temperatures) {
-                                output += \`温度: \${colorizeSsdTemp(nvmeTemperature)}\`;
+                                output += iconThermo(palette.text) + label('温度') + ': ' + colorizeSsdTemp(nvmeTemperature);
                             }
                         }
 
                         if (nvme.utils.length > 0) {
-                            output += ' | ';
+                            output += sep;
                             for (const nvme_util of nvme.utils) {
-                                output += \`负载: \${colorizeSsdLoad(nvme_util)}\`;
+                                output += iconActivity(palette.text) + label('负载') + ': ' + colorizeSsdLoad(nvme_util);
                             }
                         }
                         output += '<br>';
 
                         if (nvme.States.length > 0) {
-                            output += 'I/O: ';
+                            output += iconActivity(palette.text) + label('I/O') + ': ';
                             if (nvme.r_kBs.length > 0 || nvme.r_awaits.length > 0) {
                                 output += '读-';
                                 if (nvme.r_kBs.length > 0) {
@@ -821,14 +925,15 @@ for x in {0..9}; do
 
                         if (nvme.Cycles.length > 0) {
                             output += '<br>';
+                            output += iconClock(palette.text) + label('通电') + ': ';
                             for (const nvmeCycle of nvme.Cycles) {
-                                output += \`通电: \${nvmeCycle.replace(/ |,/gm, '')}次\`;
+                                output += muted(nvmeCycle.replace(/ |,/gm, '')) + '次';
                             }
 
                             if (nvme.Shutdowns.length > 0) {
                                 output += ', ';
                                 for (const nvmeShutdown of nvme.Shutdowns) {
-                                    output += \`不安全断电\${nvmeShutdown.replace(/ |,/gm, '')}次\`;
+                                    output += label('不安全断电') + ' ' + muted(nvmeShutdown.replace(/ |,/gm, '')) + '次';
                                     break
                                 }
                             }
@@ -836,7 +941,7 @@ for x in {0..9}; do
                             if (nvme.Hours.length > 0) {
                                 output += ', ';
                                 for (const nvmeHour of nvme.Hours) {
-                                    output += \`累计\${nvmeHour.replace(/ |,/gm, '')}小时\`;
+                                    output += label('累计') + ' ' + muted(nvmeHour.replace(/ |,/gm, '')) + '小时';
                                 }
                             }
                         }
@@ -862,11 +967,41 @@ cat >> "$tmpf2" << 'EOF'
             title: gettext('SATA硬盘'),
             textField: 'sata_status',
             renderer: function(value) {
+                const palette = {
+                    low: '#3A7D6A',
+                    mid: '#C28B2C',
+                    high: '#C45B5B',
+                    text: '#4B5563',
+                    muted: '#6B7280'
+                };
+                const sep = '<span style="color:#9CA3AF;"> | </span>';
+                function iconDisk(color) {
+                    return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:${color};fill:none;stroke-width:1.6;vertical-align:-2px;margin-right:4px"><rect x="2" y="3" width="12" height="10" rx="2"/><circle cx="11" cy="8" r="1"/></svg>`;
+                }
+                function iconThermo(color) {
+                    return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:${color};fill:none;stroke-width:1.6;vertical-align:-2px;margin-right:4px"><path d="M9 3a2 2 0 0 0-4 0v6a3 3 0 1 0 4 0V3z"/><path d="M7 6v4"/></svg>`;
+                }
+                function iconClock(color) {
+                    return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:${color};fill:none;stroke-width:1.6;vertical-align:-2px;margin-right:4px"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l3 2"/></svg>`;
+                }
+                function iconShield(color) {
+                    return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:${color};fill:none;stroke-width:1.6;vertical-align:-2px;margin-right:4px"><path d="M8 2l5 2v4c0 3-2.2 4.8-5 6-2.8-1.2-5-3-5-6V4l5-2z"/></svg>`;
+                }
+                function label(text) {
+                    return `<span style="color:${palette.text}; font-weight:600;">${text}</span>`;
+                }
+                function muted(text) {
+                    return `<span style="color:${palette.muted}; font-weight:600;">${text}</span>`;
+                }
                 function colorizeHddTemp(temp) {
                     const tempNum = parseFloat(temp);
-                    if (tempNum < 40) return `<span style="color:green; font-weight:bold;">${temp}°C</span>`;
-                    if (tempNum < 50) return `<span style="color:orange; font-weight:bold;">${temp}°C</span>`;
-                    return `<span style="color:red; font-weight:bold;">${temp}°C</span>`;
+                    if (tempNum < 40) return `<span style="color:${palette.low}; font-weight:600;">${temp}°C</span>`;
+                    if (tempNum < 50) return `<span style="color:${palette.mid}; font-weight:600;">${temp}°C</span>`;
+                    return `<span style="color:${palette.high}; font-weight:600;">${temp}°C</span>`;
+                }
+                function colorizeSmart(passed) {
+                    if (passed) return `<span style="color:${palette.low}; font-weight:600;">正常</span>`;
+                    return `<span style="color:${palette.high}; font-weight:600;">警告!</span>`;
                 }
                 if (value.length > 0) {
                 try {
@@ -876,20 +1011,20 @@ cat >> "$tmpf2" << 'EOF'
                 }
                 let output = '';
                 if (jsonData.model_name) {
-                output = `<strong>${jsonData.model_name}</strong><br>`;
+                output = `${iconDisk(palette.text)}${label(jsonData.model_name)}<br>`;
                         if (jsonData.temperature?.current !== undefined) {
-                        output += `温度: <strong>${colorizeHddTemp(jsonData.temperature.current)}</strong>`;
+                        output += `${iconThermo(palette.text)}${label('温度')}: ${colorizeHddTemp(jsonData.temperature.current)}`;
                         }
                         if (jsonData.power_on_time?.hours !== undefined) {
-                        if (output.length > 0) output += ' | ';
-                        output += `通电: ${jsonData.power_on_time.hours}小时`;
+                        if (output.length > 0) output += sep;
+                        output += `${iconClock(palette.text)}${label('通电')}: ${muted(jsonData.power_on_time.hours)}小时`;
                         if (jsonData.power_cycle_count) {
-                        output += `, 次数: ${jsonData.power_cycle_count}`;
+                        output += `, ${label('次数')}: ${muted(jsonData.power_cycle_count)}`;
                         }
                         }
                         if (jsonData.smart_status?.passed !== undefined) {
-                        if (output.length > 0) output += ' | ';
-                        output += 'SMART: ' + (jsonData.smart_status.passed ? '正常' : '警告!');
+                        if (output.length > 0) output += sep;
+                        output += `${iconShield(palette.text)}${label('SMART')}: ${colorizeSmart(jsonData.smart_status.passed)}`;
                         }
                         return output;
                         }
@@ -912,21 +1047,21 @@ cat >> "$tmpf2" << 'EOF'
                         if (value.indexOf("Min/Max") !== -1) {
                         let devicetemps = device[6]?.matchAll(/19[0,4][\s\S]*?\-\s*(\d+)(\s\(Min\/Max\s(\d+)\/(\d+)\)$|\s{0}$)/gm);
                         for (const devicetemp of devicetemps || []) {
-                            deviceOutput = `<strong>${devicemodel}</strong><br>容量: ${capacity} | 已通电: ${powerOnHours}小时 | 温度: <strong>${colorizeHddTemp(devicetemp[1])}</strong>`;
+                            deviceOutput = `${iconDisk(palette.text)}${label(devicemodel)}<br>${label('容量')}: ${muted(capacity)}${sep}${label('已通电')}: ${muted(powerOnHours)}小时${sep}${iconThermo(palette.text)}${label('温度')}: ${colorizeHddTemp(devicetemp[1])}`;
                             outputs.push(deviceOutput);
                         }
                         } else if (value.indexOf("Temperature") !== -1 || value.match(/Airflow_Temperature/)) {
                         let devicetemps = device[6]?.matchAll(/19[0,4][\s\S]*?\-\s*(\d+)/gm);
                         for (const devicetemp of devicetemps || []) {
-                        deviceOutput = `<strong>${devicemodel}</strong><br>容量: ${capacity} | 已通电: ${powerOnHours}小时 | 温度: <strong>${colorizeHddTemp(devicetemp[1])}</strong>`;
+                        deviceOutput = `${iconDisk(palette.text)}${label(devicemodel)}<br>${label('容量')}: ${muted(capacity)}${sep}${label('已通电')}: ${muted(powerOnHours)}小时${sep}${iconThermo(palette.text)}${label('温度')}: ${colorizeHddTemp(devicetemp[1])}`;
                         outputs.push(deviceOutput);
                         }
                         } else {
                         if (value.match(/\/dev\/sd[a-z]/)) {
-                            deviceOutput = `<strong>${devicemodel}</strong><br>容量: ${capacity} | 已通电: ${powerOnHours}小时 | 提示: 设备存在但未报告温度信息`;
+                            deviceOutput = `${iconDisk(palette.text)}${label(devicemodel)}<br>${label('容量')}: ${muted(capacity)}${sep}${label('已通电')}: ${muted(powerOnHours)}小时${sep}${label('提示')}: 设备存在但未报告温度信息`;
                             outputs.push(deviceOutput);
                         } else {
-                            deviceOutput = `<strong>${devicemodel}</strong><br>容量: ${capacity} | 已通电: ${powerOnHours}小时 | 提示: 未检测到温度传感器`;
+                            deviceOutput = `${iconDisk(palette.text)}${label(devicemodel)}<br>${label('容量')}: ${muted(capacity)}${sep}${label('已通电')}: ${muted(powerOnHours)}小时${sep}${label('提示')}: 未检测到温度传感器`;
                             outputs.push(deviceOutput);
                         }
                         }
