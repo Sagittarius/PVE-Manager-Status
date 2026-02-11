@@ -2,7 +2,7 @@
 # pve-manager-status.sh
 # Last Modified: 2025-10-28
 
-echo -e "\n🛠️ \033[1;33;41mPVE-Manager-Status v0.6.0 by MiKing233\033[0m"
+echo -e "\n🛠️ \033[1;33;41mPVE-Manager-Status v0.6.0 by Sagittarius\033[0m"
 
 echo -e "为你的 ProxmoxVE 节点概要页面添加扩展的硬件监控信息"
 echo -e "OpenSource on GitHub (https://github.com/Sagittarius/PVE-Manager-Status)\n"
