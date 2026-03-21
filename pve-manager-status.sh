@@ -315,13 +315,13 @@ cat > "$tmpf2" << 'EOF'
                     muted: '#6B7280'
                 };
                 function iconBolt(color) {
-                    return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:${color};fill:none;stroke-width:1.8;vertical-align:-2px;margin-right:4px"><path d="M9 1L3 9h4l-1 6 6-8H8l1-6z"/></svg>`;
+                    return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:${color};fill:none;stroke-width:1.6;margin-right:4px"><path d="M9 1L3 9h4l-1 6 6-8H8l1-6z"/></svg>`;
                 }
                 function label(text) {
                     return `<span style="color:${palette.text}; font-weight:600;">${text}</span>`;
                 }
                 function wrap(icon, labelText, valueHtml) {
-                    return `<span style="display:inline-flex;align-items:center;gap:4px;">${icon}${label(labelText)}<span style="color:${palette.muted};">:</span>${valueHtml}</span>`;
+                    return `<span style="display:inline-flex;align-items:baseline;gap:4px;">${icon}${label(labelText)}<span style="color:${palette.muted};">:</span>${valueHtml}</span>`;
                 }
                 function colorizeCpuMode(mode) {
                     if (mode === 'powersave') return `<span style="color:${palette.low}; font-weight:600;">${mode}</span>`;
