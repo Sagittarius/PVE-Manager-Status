@@ -316,35 +316,36 @@ cat > "$tmpf2" << 'EOF'
                 };
                 const sep = '<span style="color:#9CA3AF;"> | </span>';
                 function iconBolt(color) {
-                    return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:${color};fill:none;stroke-width:1.6;margin-right:4px"><path d="M9 1L3 9h4l-1 6 6-8H8l1-6z"/></svg>`;
+                    return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;display:block;stroke:${color};fill:none;stroke-width:1.6;margin-right:4px"><path d="M9 1L3 9h4l-1 6 6-8H8l1-6z"/></svg>`;
                 }
                 function iconGauge(color) {
-                    return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:${color};fill:none;stroke-width:1.6;margin-right:4px"><path d="M3 12a5 5 0 0 1 10 0"/><path d="M8 8l3-2"/><circle cx="8" cy="8" r="1"/></svg>`;
+                    return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;display:block;stroke:${color};fill:none;stroke-width:1.6;margin-right:4px"><path d="M3 12a5 5 0 0 1 10 0"/><path d="M8 8l3-2"/><circle cx="8" cy="8" r="1"/></svg>`;
                 }
                 function label(text) {
-                    return `<span style="color:${palette.text}; font-weight:600;">${text}</span>`;
+                    return `<span style="color:${palette.text}; font-weight:600;line-height:1;">${text}</span>`;
                 }
                 function wrap(icon, labelText, valueHtml) {
-                    return `<span style="display:inline-flex;align-items:baseline;gap:4px;">${icon}${label(labelText)}<span style="color:${palette.muted};">:</span>${valueHtml}</span>`;
+                    return `<span style="display:inline-flex;align-items:flex-end;gap:4px;line-height:1;">${icon}${label(labelText)}<span style="color:${palette.muted};line-height:1;">:</span>${valueHtml}</span>`;
                 }
                 function colorizeCpuMode(mode) {
-                    if (mode === 'powersave') return `<span style="color:${palette.low}; font-weight:600;">${mode}</span>`;
-                    if (mode === 'performance') return `<span style="color:${palette.high}; font-weight:600;">${mode}</span>`;
-                    return `<span style="color:${palette.mid}; font-weight:600;">${mode}</span>`;
+                    if (mode === 'powersave') return `<span style="color:${palette.low}; font-weight:600;line-height:1;">${mode}</span>`;
+                    if (mode === 'performance') return `<span style="color:${palette.high}; font-weight:600;line-height:1;">${mode}</span>`;
+                    if (!mode || mode === 'unknown') return fixedWidthMuted('不可用');
+                    return `<span style="color:${palette.mid}; font-weight:600;line-height:1;">${mode}</span>`;
                 }
                 function colorizeCpuPower(power) {
                     const powerNum = parseFloat(power);
                     const formattedPower = powerNum.toFixed(2).padStart(5, '0');
-                    const valueStyle = 'display:inline-block;min-width:5ch;text-align:right;font-variant-numeric:tabular-nums;';
+                    const valueStyle = 'display:inline-block;min-width:5ch;text-align:right;font-variant-numeric:tabular-nums;line-height:1;';
                     if (powerNum < 20) return `<span style="color:${palette.low}; font-weight:600;${valueStyle}">${formattedPower} W</span>`;
                     if (powerNum < 50) return `<span style="color:${palette.mid}; font-weight:600;${valueStyle}">${formattedPower} W</span>`;
                     return `<span style="color:${palette.high}; font-weight:600;${valueStyle}">${formattedPower} W</span>`;
                 }
                 function muted(text) {
-                    return `<span style="color:${palette.muted}; font-weight:600;">${text}</span>`;
+                    return `<span style="color:${palette.muted}; font-weight:600;line-height:1;">${text}</span>`;
                 }
                 function fixedWidthMuted(text) {
-                    return `<span style="color:${palette.muted}; font-weight:600;display:inline-block;min-width:7ch;text-align:right;font-variant-numeric:tabular-nums;">${text}</span>`;
+                    return `<span style="color:${palette.muted}; font-weight:600;display:inline-block;min-width:7ch;text-align:right;font-variant-numeric:tabular-nums;line-height:1;">${text}</span>`;
                 }
                 const lines = value.split('\n').map(line => line.trim()).filter(Boolean);
                 const w0 = lines[0] || 'unknown';
