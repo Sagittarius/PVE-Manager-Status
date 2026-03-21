@@ -314,8 +314,12 @@ cat > "$tmpf2" << 'EOF'
                     text: '#4B5563',
                     muted: '#6B7280'
                 };
+                const sep = '<span style="color:#9CA3AF;"> | </span>';
                 function iconBolt(color) {
                     return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:${color};fill:none;stroke-width:1.6;margin-right:4px"><path d="M9 1L3 9h4l-1 6 6-8H8l1-6z"/></svg>`;
+                }
+                function iconGauge(color) {
+                    return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:${color};fill:none;stroke-width:1.6;margin-right:4px"><path d="M3 12a5 5 0 0 1 10 0"/><path d="M8 8l3-2"/><circle cx="8" cy="8" r="1"/></svg>`;
                 }
                 function label(text) {
                     return `<span style="color:${palette.text}; font-weight:600;">${text}</span>`;
@@ -353,7 +357,7 @@ cat > "$tmpf2" << 'EOF'
                 }
                 const powerValue = metrics.total || metrics.package || '';
                 const powerHtml = powerValue ? colorizeCpuPower(powerValue) : fixedWidthMuted('不可用');
-                return `${wrap(iconBolt(palette.text), 'CPU功耗', powerHtml)}`
+                return `${wrap(iconGauge(palette.text), 'CPU电源模式', colorizeCpuMode(w0))}${sep}${wrap(iconBolt(palette.text), 'CPU功耗', powerHtml)}`
             }
         },
         {
