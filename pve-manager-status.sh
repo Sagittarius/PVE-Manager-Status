@@ -220,8 +220,23 @@ cat > "$tmpf1" << 'EOF'
         # PVE-Manager-Status start
 
         my $cpumodes = `cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor`;
-        my $cpupowers = `sudo turbostat -S -q -s PkgWatt -i 0.1 -n 1 -c package | grep -v PkgWatt`;
-        $res->{cpupower} = $cpumodes . $cpupowers;
+        chomp($cpumodes);
+        my $zenpower_core = `sudo sensors | awk '/^zenpower-pci-/{in_zenpower=1; next} in_zenpower && /^SVI2_P_Core:/ {print \$(NF-1); exit}'`;
+        my $zenpower_soc = `sudo sensors | awk '/^zenpower-pci-/{in_zenpower=1; next} in_zenpower && /^SVI2_P_SoC:/ {print \$(NF-1); exit}'`;
+        chomp($zenpower_core);
+        chomp($zenpower_soc);
+        my $cpupowers = '';
+        if ($zenpower_core ne '' || $zenpower_soc ne '') {
+            my $core_power = ($zenpower_core ne '') ? $zenpower_core : 0;
+            my $soc_power = ($zenpower_soc ne '') ? $zenpower_soc : 0;
+            my $total_power = sprintf("%.2f", $core_power + $soc_power);
+            $cpupowers = "source=zenpower\ncore=$core_power\nsoc=$soc_power\ntotal=$total_power";
+        } else {
+            my $pkg_power = `sudo turbostat -S -q -s PkgWatt -i 0.1 -n 1 -c package | awk 'NF { value = \$NF } END { print value }'`;
+            chomp($pkg_power);
+            $cpupowers = ($pkg_power ne '') ? "source=turbostat\npackage=$pkg_power" : "source=unavailable";
+        }
+        $res->{cpupower} = $cpumodes . "\n" . $cpupowers;
 
         my $cpufreqs = `lscpu | grep MHz`;
         my $threadfreqs = `cat /proc/cpuinfo | grep -i "cpu MHz"`;
@@ -323,9 +338,30 @@ cat > "$tmpf2" << 'EOF'
                     if (powerNum < 50) return `<span style="color:${palette.mid}; font-weight:600;">${power} W</span>`;
                     return `<span style="color:${palette.high}; font-weight:600;">${power} W</span>`;
                 }
-                const w0 = value.split('\n')[0].split(' ')[0];
-                const w1 = value.split('\n')[1].split(' ')[0];
-                return `${wrap(iconGauge(palette.text), 'CPU电源模式', colorizeCpuMode(w0))}${sep}${wrap(iconBolt(palette.text), 'CPU功耗', colorizeCpuPower(w1))}`
+                function muted(text) {
+                    return `<span style="color:${palette.muted}; font-weight:600;">${text}</span>`;
+                }
+                const lines = value.split('\n').map(line => line.trim()).filter(Boolean);
+                const w0 = lines[0] || 'unknown';
+                const metrics = {};
+                for (const line of lines.slice(1)) {
+                    const [key, rawValue] = line.split('=');
+                    if (key && rawValue !== undefined) {
+                        metrics[key] = rawValue;
+                    }
+                }
+                const powerValue = metrics.total || metrics.package || '';
+                const powerHtml = powerValue ? colorizeCpuPower(powerValue) : muted('不可用');
+                let output = `${wrap(iconGauge(palette.text), 'CPU电源模式', colorizeCpuMode(w0))}${sep}${wrap(iconBolt(palette.text), 'CPU功耗', powerHtml)}`;
+                if (metrics.source === 'zenpower' && (metrics.core || metrics.soc)) {
+                    const parts = [];
+                    if (metrics.core) parts.push(`Core ${metrics.core} W`);
+                    if (metrics.soc) parts.push(`SoC ${metrics.soc} W`);
+                    if (parts.length > 0) {
+                        output += `${sep}${label('来源')} ${muted(parts.join(' + '))}`;
+                    }
+                }
+                return output
             }
         },
         {
@@ -585,52 +621,6 @@ cat > "$tmpf2" << 'EOF'
 
                 output = output.slice(0, -2);
                 return output.replace(/\n/g, '<br>');
-            }
-        },
-        {
-            itemId: 'corefreq',
-            colspan: 2,
-            printBar: false,
-            title: gettext('核心频率'),
-            textField: 'cpufreq',
-            renderer: function(value) {
-                const palette = {
-                    low: '#3A7D6A',
-                    mid: '#C28B2C',
-                    high: '#C45B5B',
-                    text: '#4B5563'
-                };
-                function iconChip(color) {
-                    return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:${color};fill:none;stroke-width:1.6;vertical-align:-2px;margin-right:4px"><rect x="4" y="4" width="8" height="8" rx="1"/><path d="M2 6h2M2 10h2M12 6h2M12 10h2M6 2v2M10 2v2M6 12v2M10 12v2"/></svg>`;
-                }
-                function colorizeCpuFreq(freq) {
-                    const freqNum = parseFloat(freq);
-                    if (freqNum < 1500) return `<span style="color:${palette.low}; font-weight:600;">${freq} MHz</span>`;
-                    if (freqNum < 3000) return `<span style="color:${palette.mid}; font-weight:600;">${freq} MHz</span>`;
-                    return `<span style="color:${palette.high}; font-weight:600;">${freq} MHz</span>`;
-                }
-                const freqMatches = value.matchAll(/^cpu MHz\s*:\s*([\d\.]+)/gm);
-                const frequencies = [];
-
-                for (const match of freqMatches) {
-                    const coreNum = frequencies.length + 1;
-                    frequencies.push(`<span style="color:${palette.text}; font-weight:600;">线程 ${coreNum}</span>: ${colorizeCpuFreq(parseInt(match[1]))}`);
-                }
-
-                if (frequencies.length === 0) {
-                    return '无法获取CPU频率信息';
-                }
-
-                const groupedFreqs = [];
-                for (let i = 0; i < frequencies.length; i += 4) {
-                    const group = frequencies.slice(i, i + 4);
-                    if (group.length > 0) {
-                        group[0] = `${iconChip(palette.text)}${group[0]}`;
-                    }
-                    groupedFreqs.push(group.join(' | '));
-                }
-
-                return groupedFreqs.join('<br>');
             }
         },
 EOF
@@ -1201,15 +1191,6 @@ calculate_height_increase() {
     if [ "$core_temp_count" -gt 1 ]; then
         local sensor_core_lines=$(((core_temp_count + 4 - 1) / 4))
         total_lines=$((total_lines + sensor_core_lines))
-    fi
-
-    # itemId:corefreq(核心频率): 无固定行
-    module_count=$((module_count + 1))
-    # 根据 /proc/cpuinfo 输出的线程数量计算额外行数
-    local thread_count=$(grep -c ^processor /proc/cpuinfo)
-    if [ "$thread_count" -gt 0 ]; then
-        local core_freq_lines=$(((thread_count + 4 - 1) / 4))
-        total_lines=$((total_lines + core_freq_lines))
     fi
 
     # itemId:nvme-status(NVMe硬盘): 固定4行每个
