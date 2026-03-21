@@ -321,7 +321,7 @@ cat > "$tmpf2" << 'EOF'
                     return `<span style="color:${palette.text}; font-weight:600;">${text}</span>`;
                 }
                 function wrap(icon, labelText, valueHtml) {
-                    return `<span style="display:inline-flex;align-items:flex-end;gap:4px;line-height:1.2;">${icon}${label(labelText)}<span style="color:${palette.muted};line-height:1;">:</span>${valueHtml}</span>`;
+                    return `<span style="display:inline-flex;align-items:center;gap:4px;">${icon}${label(labelText)}<span style="color:${palette.muted};">:</span>${valueHtml}</span>`;
                 }
                 function colorizeCpuMode(mode) {
                     if (mode === 'powersave') return `<span style="color:${palette.low}; font-weight:600;">${mode}</span>`;
