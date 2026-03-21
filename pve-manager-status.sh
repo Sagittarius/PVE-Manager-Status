@@ -458,7 +458,7 @@ cat > "$tmpf2" << 'EOF'
                 const gpuTemps = [];
                 const acpiTemps = [];
                 const fanGroups = [];
-                let cpus = value.matchAll(/^(?:coretemp-isa|k10temp-pci)-(\w{4})$\n.*?\n((?:Package|Core|Tctl)[\s\S]*?^\n)+/gm);
+                let cpus = value.matchAll(/^(?:coretemp-isa|k10temp-pci|zenpower-pci)-(\w{4})$\n.*?\n((?:Package|Core|Tctl|Tdie)[\s\S]*?^\n)+/gm);
                 for (const cpu of cpus) {
                     let cpuNumber = parseInt(cpu[1], 10);
                     cpuData[cpuNumber] = {
