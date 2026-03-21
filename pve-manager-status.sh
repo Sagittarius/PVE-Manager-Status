@@ -409,6 +409,7 @@ cat > "$tmpf2" << 'EOF'
                     text: '#4B5563',
                     muted: '#6B7280'
                 };
+                const sep = '<span style="color:#9CA3AF;"> | </span>';
                 function iconChip(color) {
                     return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:${color};fill:none;stroke-width:1.6;vertical-align:-2px;margin-right:4px"><rect x="4" y="4" width="8" height="8" rx="1"/><path d="M2 6h2M2 10h2M12 6h2M12 10h2M6 2v2M10 2v2M6 12v2M10 12v2"/></svg>`;
                 }
@@ -497,14 +498,14 @@ cat > "$tmpf2" << 'EOF'
                         gpuTemps.push(edge[1]);
                     }
                 }
-                if (gpuTemps.length > 0) {
-                    output += `${icons.gpu}${label('核显')}: `;
-                    for (const edgeTemp of gpuTemps) {
-                        output += `${colorizeGpuTemp(edgeTemp)}, `;
+                    if (gpuTemps.length > 0) {
+                        output += `${icons.gpu}${label('核显')}: `;
+                        for (const edgeTemp of gpuTemps) {
+                            output += `${colorizeGpuTemp(edgeTemp)}, `;
+                        }
+                        output = output.slice(0, -2);
+                        output += sep;
                     }
-                    output = output.slice(0, -2);
-                    output += ' | ';
-                }
 
                 let acpitzs = value.matchAll(/^acpitz-acpi-(\d*)$\n.*?\n((?:temp)[\s\S]*?^\n)+/gm);
                 for (const acpitz of acpitzs) {
@@ -513,14 +514,14 @@ cat > "$tmpf2" << 'EOF'
                         acpiTemps.push(acpisensor[1]);
                     }
                 }
-                if (acpiTemps.length > 0) {
-                    output += `${icons.board}${label('主板')}: `;
-                    for (const acpiTemp of acpiTemps) {
-                        output += `${colorizeAcpiTemp(acpiTemp)}, `;
+                    if (acpiTemps.length > 0) {
+                        output += `${icons.board}${label('主板')}: `;
+                        for (const acpiTemp of acpiTemps) {
+                            output += `${colorizeAcpiTemp(acpiTemp)}, `;
+                        }
+                        output = output.slice(0, -2);
+                        output += sep;
                     }
-                    output = output.slice(0, -2);
-                    output += ' | ';
-                }
 
                 let FunStates = value.matchAll(/^(?:[a-zA-z]{2,3}\d{4}|dell_smm)-isa-(\w{4})$\n((?![ \S]+: *\d+ +RPM)[ \S]*?\n)*((?:[ \S]+: *\d+ RPM)[\s\S]*?^\n)+/gm);
                 for (const FunState of FunStates) {
@@ -591,7 +592,7 @@ cat > "$tmpf2" << 'EOF'
                             }
                         }
                         output = output.slice(0, -2);
-                        output += ' | ';
+                        output += sep;
                     }
                 }
 
