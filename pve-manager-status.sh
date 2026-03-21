@@ -334,12 +334,17 @@ cat > "$tmpf2" << 'EOF'
                 }
                 function colorizeCpuPower(power) {
                     const powerNum = parseFloat(power);
-                    if (powerNum < 20) return `<span style="color:${palette.low}; font-weight:600;">${power} W</span>`;
-                    if (powerNum < 50) return `<span style="color:${palette.mid}; font-weight:600;">${power} W</span>`;
-                    return `<span style="color:${palette.high}; font-weight:600;">${power} W</span>`;
+                    const formattedPower = powerNum.toFixed(2).padStart(5, '0');
+                    const valueStyle = 'display:inline-block;min-width:5ch;text-align:right;font-variant-numeric:tabular-nums;';
+                    if (powerNum < 20) return `<span style="color:${palette.low}; font-weight:600;${valueStyle}">${formattedPower} W</span>`;
+                    if (powerNum < 50) return `<span style="color:${palette.mid}; font-weight:600;${valueStyle}">${formattedPower} W</span>`;
+                    return `<span style="color:${palette.high}; font-weight:600;${valueStyle}">${formattedPower} W</span>`;
                 }
                 function muted(text) {
                     return `<span style="color:${palette.muted}; font-weight:600;">${text}</span>`;
+                }
+                function fixedWidthMuted(text) {
+                    return `<span style="color:${palette.muted}; font-weight:600;display:inline-block;min-width:7ch;text-align:right;font-variant-numeric:tabular-nums;">${text}</span>`;
                 }
                 const lines = value.split('\n').map(line => line.trim()).filter(Boolean);
                 const w0 = lines[0] || 'unknown';
@@ -351,17 +356,8 @@ cat > "$tmpf2" << 'EOF'
                     }
                 }
                 const powerValue = metrics.total || metrics.package || '';
-                const powerHtml = powerValue ? colorizeCpuPower(powerValue) : muted('不可用');
-                let output = `${wrap(iconGauge(palette.text), 'CPU电源模式', colorizeCpuMode(w0))}${sep}${wrap(iconBolt(palette.text), 'CPU功耗', powerHtml)}`;
-                if (metrics.source === 'zenpower' && (metrics.core || metrics.soc)) {
-                    const parts = [];
-                    if (metrics.core) parts.push(`Core ${metrics.core} W`);
-                    if (metrics.soc) parts.push(`SoC ${metrics.soc} W`);
-                    if (parts.length > 0) {
-                        output += `${sep}${label('来源')} ${muted(parts.join(' + '))}`;
-                    }
-                }
-                return output
+                const powerHtml = powerValue ? colorizeCpuPower(powerValue) : fixedWidthMuted('不可用');
+                return `${wrap(iconGauge(palette.text), 'CPU电源模式', colorizeCpuMode(w0))}${sep}${wrap(iconBolt(palette.text), 'CPU功耗', powerHtml)}`
             }
         },
         {
