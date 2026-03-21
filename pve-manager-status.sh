@@ -314,7 +314,7 @@ cat > "$tmpf2" << 'EOF'
                     text: '#4B5563',
                     muted: '#6B7280'
                 };
-                const sep = '<span style="color:#9CA3AF;"> | </span>';
+                const sep = '<span style="color:#9CA3AF;display:inline-flex;align-items:flex-end;line-height:1;"> | </span>';
                 function iconBolt(color) {
                     return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:${color};fill:none;stroke-width:1.8;vertical-align:-2px;margin-right:4px"><path d="M9 1L3 9h4l-1 6 6-8H8l1-6z"/></svg>`;
                 }
@@ -325,7 +325,7 @@ cat > "$tmpf2" << 'EOF'
                     return `<span style="color:${palette.text}; font-weight:600;">${text}</span>`;
                 }
                 function wrap(icon, labelText, valueHtml) {
-                    return `<span style="display:inline-flex;align-items:center;gap:4px;">${icon}${label(labelText)}<span style="color:${palette.muted};">:</span> ${valueHtml}</span>`;
+                    return `<span style="display:inline-flex;align-items:flex-end;gap:4px;line-height:1.2;">${icon}${label(labelText)}<span style="color:${palette.muted};line-height:1;">:</span>${valueHtml}</span>`;
                 }
                 function colorizeCpuMode(mode) {
                     if (mode === 'powersave') return `<span style="color:${palette.low}; font-weight:600;">${mode}</span>`;
