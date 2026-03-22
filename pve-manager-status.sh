@@ -316,36 +316,33 @@ cat > "$tmpf2" << 'EOF'
                 };
                 const sep = '<span style="color:#9CA3AF;"> | </span>';
                 function iconBolt(color) {
-                    return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;display:block;stroke:${color};fill:none;stroke-width:1.6;margin-right:4px"><path d="M9 1L3 9h4l-1 6 6-8H8l1-6z"/></svg>`;
+                    return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:${color};fill:none;stroke-width:1.8;vertical-align:-2px;margin-right:4px"><path d="M9 1L3 9h4l-1 6 6-8H8l1-6z"/></svg>`;
                 }
                 function iconGauge(color) {
-                    return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;display:block;stroke:${color};fill:none;stroke-width:1.6;margin-right:4px"><path d="M3 12a5 5 0 0 1 10 0"/><path d="M8 8l3-2"/><circle cx="8" cy="8" r="1"/></svg>`;
+                    return `<svg viewBox="0 0 16 16" style="width:14px;height:14px;stroke:${color};fill:none;stroke-width:1.8;vertical-align:-2px;margin-right:4px"><path d="M3 12a5 5 0 0 1 10 0"/><path d="M8 8l3-2"/><circle cx="8" cy="8" r="1"/></svg>`;
                 }
                 function label(text) {
-                    return `<span style="color:${palette.text}; font-weight:600;line-height:1;">${text}</span>`;
-                }
-                function wrap(icon, labelText, valueHtml) {
-                    return `<span style="display:inline-flex;align-items:flex-end;gap:4px;line-height:1;">${icon}${label(labelText)}<span style="color:${palette.muted};line-height:1;">:</span>${valueHtml}</span>`;
+                    return `<span style="color:${palette.text}; font-weight:600;">${text}</span>`;
                 }
                 function colorizeCpuMode(mode) {
-                    if (mode === 'powersave') return `<span style="color:${palette.low}; font-weight:600;line-height:1;">${mode}</span>`;
-                    if (mode === 'performance') return `<span style="color:${palette.high}; font-weight:600;line-height:1;">${mode}</span>`;
+                    if (mode === 'powersave') return `<span style="color:${palette.low}; font-weight:600;">${mode}</span>`;
+                    if (mode === 'performance') return `<span style="color:${palette.high}; font-weight:600;">${mode}</span>`;
                     if (!mode || mode === 'unknown') return fixedWidthMuted('不可用');
-                    return `<span style="color:${palette.mid}; font-weight:600;line-height:1;">${mode}</span>`;
+                    return `<span style="color:${palette.mid}; font-weight:600;">${mode}</span>`;
                 }
                 function colorizeCpuPower(power) {
                     const powerNum = parseFloat(power);
                     const formattedPower = powerNum.toFixed(2).padStart(5, '0');
-                    const valueStyle = 'display:inline-block;min-width:5ch;text-align:right;font-variant-numeric:tabular-nums;line-height:1;';
+                    const valueStyle = 'display:inline-block;min-width:5ch;text-align:right;font-variant-numeric:tabular-nums;';
                     if (powerNum < 20) return `<span style="color:${palette.low}; font-weight:600;${valueStyle}">${formattedPower} W</span>`;
                     if (powerNum < 50) return `<span style="color:${palette.mid}; font-weight:600;${valueStyle}">${formattedPower} W</span>`;
                     return `<span style="color:${palette.high}; font-weight:600;${valueStyle}">${formattedPower} W</span>`;
                 }
                 function muted(text) {
-                    return `<span style="color:${palette.muted}; font-weight:600;line-height:1;">${text}</span>`;
+                    return `<span style="color:${palette.muted}; font-weight:600;">${text}</span>`;
                 }
                 function fixedWidthMuted(text) {
-                    return `<span style="color:${palette.muted}; font-weight:600;display:inline-block;min-width:7ch;text-align:right;font-variant-numeric:tabular-nums;line-height:1;">${text}</span>`;
+                    return `<span style="color:${palette.muted}; font-weight:600;display:inline-block;min-width:7ch;text-align:right;font-variant-numeric:tabular-nums;">${text}</span>`;
                 }
                 const lines = value.split('\n').map(line => line.trim()).filter(Boolean);
                 const w0 = lines[0] || 'unknown';
@@ -358,7 +355,7 @@ cat > "$tmpf2" << 'EOF'
                 }
                 const powerValue = metrics.total || metrics.package || '';
                 const powerHtml = powerValue ? colorizeCpuPower(powerValue) : fixedWidthMuted('不可用');
-                return `${wrap(iconGauge(palette.text), 'CPU电源模式', colorizeCpuMode(w0))}${sep}${wrap(iconBolt(palette.text), 'CPU功耗', powerHtml)}`
+                return `${iconGauge(palette.text)}${label('CPU电源模式')} ${colorizeCpuMode(w0)}${sep}${iconBolt(palette.text)}${label('CPU功耗')} ${powerHtml}`
             }
         },
         {
