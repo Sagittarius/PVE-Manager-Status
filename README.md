@@ -5,7 +5,20 @@
 
 PVE-Manager-Status 是一款强大的开源脚本工具, 通过实时基于动态色彩的关键指标显示, 帮助你直观的了解服务器各项硬件的负载和温度, 从而轻松掌握设备的实时运行状态以确保其稳定高效.
 
-<img width="1120" height="699" alt="image" src="https://github.com/user-attachments/assets/51224701-a763-4b14-9951-5990f7e22901" />
+<img width="1043" height="517" alt="PVE-Manager-Status 截图" src="./assets/pve-status.png" />
+
+## 与上游分支的差异
+
+本仓库是基于上游项目 `MiKing233/PVE-Manager-Status` 的 Fork, 当前分支在保持原始安装方式和总体功能方向不变的前提下, 额外做了以下调整:
+
+- 修复脚本重复执行时可能导致的重复注入问题, 使修改过程可重复执行.
+- 为 AMD 平台增加 `zenpower` 功耗读取支持, 当前 CPU 能耗优先读取 `SVI2_P_Core + SVI2_P_SoC`, 读取失败时再回退到 `turbostat`.
+- 恢复并兼容 `zenpower-pci-*` 传感器块下的 CPU 温度显示.
+- 移除逐线程核心频率显示, 仅保留概要页需要的 CPU 频率信息.
+- 调整 CPU 能耗区域的布局、对齐和数字宽度, 减少刷新时的跳动.
+- 统一部分分隔线颜色和状态行样式, 使页面观感更一致.
+
+如果你需要完全跟随上游实现, 请以 `MiKing233/PVE-Manager-Status` 为准; 当前 Fork 更偏向 AMD 主机兼容性和页面细节修正.
 
 ## 免责声明
 
