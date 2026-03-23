@@ -173,7 +173,7 @@ read -r -d '' SUDOERS_CONTENT << EOM
 www-data ALL=(root) NOPASSWD: ${SENSORS_PATH}
 www-data ALL=(root) NOPASSWD: ${SMARTCTL_PATH} -a /dev/*
 www-data ALL=(root) NOPASSWD: ${SMARTCTL_PATH} -a -j /dev/*
-www-data ALL=(root) NOPASSWD: ${IOSTAT_PATH} -d -x -k 1 2
+www-data ALL=(root) NOPASSWD: ${IOSTAT_PATH} -d -x -k 1 1
 www-data ALL=(root) NOPASSWD: ${TURBOSTAT_PATH} -S -q -s PkgWatt -i 0.1 -n 1 -c package
 EOM
 
@@ -251,7 +251,7 @@ for x in {0..9}; do
             cat >> "$tmpf1" << EOF
 
         my \$nvme${x}_info = \`sudo smartctl -a $dev | grep -E "Model Number|(?=Total|Namespace)[^:]+Capacity|Temperature:|Available Spare:|Percentage|Data Unit|Power Cycles|Power On Hours|Unsafe Shutdowns|Integrity Errors"\`;
-        my \$nvme${x}_io = \`sudo iostat -d -x -k 1 2 | awk '/^${dev##*/}[[:space:]]/ { line = \$0 } END { print line }'\`;
+        my \$nvme${x}_io = \`sudo iostat -d -x -k 1 1 | grep -E "^${dev##*/}"\`;
         \$res->{nvme${x}_status} = \$nvme${x}_info . \$nvme${x}_io;
 EOF
             break
