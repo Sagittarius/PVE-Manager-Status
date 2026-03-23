@@ -252,7 +252,7 @@ for x in {0..9}; do
 
         my \$nvme${x}_info = \`sudo smartctl -a $dev | grep -E "Model Number|(?=Total|Namespace)[^:]+Capacity|Temperature:|Available Spare:|Percentage|Data Unit|Power Cycles|Power On Hours|Unsafe Shutdowns|Integrity Errors"\`;
         my \$nvme${x}_io = \`sudo iostat -d -x -k 1 2 | awk '/^${dev##*/}[[:space:]]/ { line = \$0 } END { print line }'\`;
-        \$res->{nvme${x}_status} = \$nvme${x}_info . \$nvme${x}_io;
+        \$res->{nvme${x}_status} = \$nvme${x}_info . "\n" . \$nvme${x}_io;
 EOF
             break
         fi
