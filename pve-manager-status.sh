@@ -221,20 +221,45 @@ cat > "$tmpf1" << 'EOF'
 
         my $cpumodes = `cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor`;
         chomp($cpumodes);
-        my $zenpower_core = `sudo sensors | awk '/^zenpower-pci-/{in_zenpower=1; next} in_zenpower && /^SVI2_P_Core:/ {print \$(NF-1); exit}'`;
-        my $zenpower_soc = `sudo sensors | awk '/^zenpower-pci-/{in_zenpower=1; next} in_zenpower && /^SVI2_P_SoC:/ {print \$(NF-1); exit}'`;
-        chomp($zenpower_core);
-        chomp($zenpower_soc);
+        sub normalize_power_watts {
+            my ($raw_value, $raw_unit) = @_;
+            return undef if !defined($raw_value) || $raw_value eq '';
+            return undef if $raw_value !~ /^-?\d+(?:\.\d+)?$/;
+
+            my $power = $raw_value + 0;
+            my $unit = defined($raw_unit) ? lc($raw_unit) : 'w';
+            if ($unit eq 'mw') {
+                $power /= 1000;
+            } elsif ($unit eq 'uw') {
+                $power /= 1000000;
+            } elsif ($unit ne 'w') {
+                return undef;
+            }
+
+            return undef if $power <= 0 || $power > 300;
+            return sprintf('%.2f', $power);
+        }
+
+        my ($zenpower_core, $zenpower_core_unit) = split(/\s+/, `sudo sensors | awk '/^zenpower-pci-/{in_zenpower=1; next} in_zenpower && /^SVI2_P_Core:/ {print \$(NF-1), \$NF; exit}'`, 2);
+        my ($zenpower_soc, $zenpower_soc_unit) = split(/\s+/, `sudo sensors | awk '/^zenpower-pci-/{in_zenpower=1; next} in_zenpower && /^SVI2_P_SoC:/ {print \$(NF-1), \$NF; exit}'`, 2);
+        chomp($zenpower_core //= '');
+        chomp($zenpower_core_unit //= '');
+        chomp($zenpower_soc //= '');
+        chomp($zenpower_soc_unit //= '');
         my $cpupowers = '';
-        if ($zenpower_core ne '' || $zenpower_soc ne '') {
-            my $core_power = ($zenpower_core ne '') ? $zenpower_core : 0;
-            my $soc_power = ($zenpower_soc ne '') ? $zenpower_soc : 0;
-            my $total_power = sprintf("%.2f", $core_power + $soc_power);
-            $cpupowers = "source=zenpower\ncore=$core_power\nsoc=$soc_power\ntotal=$total_power";
+        my $core_power = normalize_power_watts($zenpower_core, $zenpower_core_unit);
+        my $soc_power = normalize_power_watts($zenpower_soc, $zenpower_soc_unit);
+        if (defined($core_power) || defined($soc_power)) {
+            my $core_value = defined($core_power) ? $core_power : 0;
+            my $soc_value = defined($soc_power) ? $soc_power : 0;
+            my $total_power = sprintf("%.2f", $core_value + $soc_value);
+            $cpupowers = "source=zenpower\ncore=$core_value\nsoc=$soc_value\ntotal=$total_power";
         } else {
-            my $pkg_power = `sudo turbostat -S -q -s PkgWatt -i 0.1 -n 1 -c package | awk 'NF { value = \$NF } END { print value }'`;
-            chomp($pkg_power);
-            $cpupowers = ($pkg_power ne '') ? "source=turbostat\npackage=$pkg_power" : "source=unavailable";
+            my ($pkg_power_raw, $pkg_power_unit) = split(/\s+/, `sudo turbostat -S -q -s PkgWatt -i 0.1 -n 1 -c package | awk 'NF { value = \$NF } END { print value, "W" }'`, 2);
+            chomp($pkg_power_raw //= '');
+            chomp($pkg_power_unit //= '');
+            my $pkg_power = normalize_power_watts($pkg_power_raw, $pkg_power_unit);
+            $cpupowers = defined($pkg_power) ? "source=turbostat\npackage=$pkg_power" : "source=unavailable";
         }
         $res->{cpupower} = $cpumodes . "\n" . $cpupowers;
 
@@ -245,21 +270,20 @@ cat > "$tmpf1" << 'EOF'
         $res->{sensors} = `sudo sensors`;
 EOF
 
-for x in {0..9}; do
-    for dev in "/dev/nvme${x}" "/dev/nvme${x}n1"; do
-        if [ -b "$dev" ]; then
-            cat >> "$tmpf1" << EOF
-
-        my \$nvme${x}_info = \`sudo smartctl -a $dev | grep -E "Model Number|(?=Total|Namespace)[^:]+Capacity|Temperature:|Available Spare:|Percentage|Data Unit|Power Cycles|Power On Hours|Unsafe Shutdowns|Integrity Errors"\`;
-        my \$nvme${x}_io = \`sudo iostat -y -d -x -k 1 1 | grep -E "^${dev##*/}"\`;
-        \$res->{nvme${x}_status} = \$nvme${x}_info . \$nvme${x}_io;
-EOF
-            break
-        fi
-    done
-done
-
 cat >> "$tmpf1" << 'EOF'
+
+        my @nvme_status = ();
+        my %seen_nvme = ();
+        foreach my $dev (sort(glob('/dev/nvme*n1'), glob('/dev/nvme[0-9]'))) {
+            next if !-b $dev;
+            my ($base) = $dev =~ m{/((?:nvme\d+))(?:n\d+)?$};
+            next if !$base || $seen_nvme{$base}++;
+            my $smart_dev = -b "/dev/${base}n1" ? "/dev/${base}n1" : "/dev/$base";
+            my $nvme_info = `sudo smartctl -a $smart_dev | grep -E "Model Number|(?=Total|Namespace)[^:]+Capacity|Temperature:|Available Spare:|Percentage|Data Unit|Power Cycles|Power On Hours|Unsafe Shutdowns|Integrity Errors"`;
+            my $nvme_io = `sudo iostat -y -d -x -k 1 1 | grep -E "^$base"`;
+            push @nvme_status, $nvme_info . "\n" . $nvme_io if $nvme_info || $nvme_io;
+        }
+        $res->{nvme_status} = join("\n", @nvme_status);
 
         my @sata_status = ();
         foreach my $dev (glob('/dev/sd?')) {
@@ -332,6 +356,9 @@ cat > "$tmpf2" << 'EOF'
                 }
                 function colorizeCpuPower(power) {
                     const powerNum = parseFloat(power);
+                    if (!Number.isFinite(powerNum) || powerNum <= 0 || powerNum > 300) {
+                        return fixedWidthMuted('不可用');
+                    }
                     const formattedPower = powerNum.toFixed(2).padStart(5, '0');
                     const valueStyle = 'display:inline-block;min-width:5ch;text-align:right;font-variant-numeric:tabular-nums;';
                     if (powerNum < 20) return `<span style="color:${palette.low}; font-weight:600;${valueStyle}">${formattedPower} W</span>`;
@@ -620,16 +647,13 @@ cat > "$tmpf2" << 'EOF'
         },
 EOF
 
-for x in {0..9}; do
-    for dev in "/dev/nvme${x}" "/dev/nvme${x}n1"; do
-        if [ -b "$dev" ]; then
-            cat >> "$tmpf2" << EOF
+cat >> "$tmpf2" << 'EOF'
         {
-            itemId: 'nvme${x}-status',
+            itemId: 'nvme-status',
             colspan: 2,
             printBar: false,
-            title: gettext('NVMe${x}硬盘'),
-            textField: 'nvme${x}_status',
+            title: gettext('NVMe硬盘'),
+            textField: 'nvme_status',
             renderer:function(value){
                 const palette = {
                     low: '#3A7D6A',
@@ -668,35 +692,35 @@ for x in {0..9}; do
                 }
                 function colorizeSsdModel(model, life) {
                     const color = getSsdLifeColor(life);
-                    return \`<span style="color:\${color}; font-weight:600;">\${model}</span>\`;
+                    return `<span style="color:${color}; font-weight:600;">${model}</span>`;
                 }
                 function colorizeSsdLife(life) {
                     const color = getSsdLifeColor(life);
-                    return \`<span style="color:\${color}; font-weight:600;">\${life}%</span>\`;
+                    return `<span style="color:${color}; font-weight:600;">${life}%</span>`;
                 }
                 function colorizeSsdTemp(temp) {
                     const tempNum = parseFloat(temp);
-                    if (tempNum < 50) return \`<span style="color:\${palette.low}; font-weight:600;">\${temp}°C</span>\`;
-                    if (tempNum < 70) return \`<span style="color:\${palette.mid}; font-weight:600;">\${temp}°C</span>\`;
-                    return \`<span style="color:\${palette.high}; font-weight:600;">\${temp}°C</span>\`;
+                    if (tempNum < 50) return `<span style="color:${palette.low}; font-weight:600;">${temp}°C</span>`;
+                    if (tempNum < 70) return `<span style="color:${palette.mid}; font-weight:600;">${temp}°C</span>`;
+                    return `<span style="color:${palette.high}; font-weight:600;">${temp}°C</span>`;
                 }
                 function colorizeSsdLoad(load) {
                     const loadNum = parseFloat(load);
-                    if (loadNum < 50) return \`<span style="color:\${palette.low}; font-weight:600;">\${load}%</span>\`;
-                    if (loadNum < 80) return \`<span style="color:\${palette.mid}; font-weight:600;">\${load}%</span>\`;
-                    return \`<span style="color:\${palette.high}; font-weight:600;">\${load}%</span>\`;
+                    if (loadNum < 50) return `<span style="color:${palette.low}; font-weight:600;">${load}%</span>`;
+                    if (loadNum < 80) return `<span style="color:${palette.mid}; font-weight:600;">${load}%</span>`;
+                    return `<span style="color:${palette.high}; font-weight:600;">${load}%</span>`;
                 }
                 function colorizeIoSpeed(speed) {
                     const speedNum = parseFloat(speed);
-                    if (speedNum > 1000) return \`<span style="color:\${palette.high}; font-weight:600;">\${speed}MB/s</span>\`;
-                    if (speedNum < 100) return \`<span style="color:\${palette.low}; font-weight:600;">\${speed}MB/s</span>\`;
-                    return \`<span style="color:\${palette.mid}; font-weight:600;">\${speed}MB/s</span>\`;
+                    if (speedNum > 1000) return `<span style="color:${palette.high}; font-weight:600;">${speed}MB/s</span>`;
+                    if (speedNum < 100) return `<span style="color:${palette.low}; font-weight:600;">${speed}MB/s</span>`;
+                    return `<span style="color:${palette.mid}; font-weight:600;">${speed}MB/s</span>`;
                 }
                 function colorizeIoLatency(latency) {
                     const latencyNum = parseFloat(latency);
-                    if (latencyNum > 10) return \`<span style="color:\${palette.high}; font-weight:600;">\${latency}ms</span>\`;
-                    if (latencyNum < 1) return \`<span style="color:\${palette.low}; font-weight:600;">\${latency}ms</span>\`;
-                    return \`<span style="color:\${palette.mid}; font-weight:600;">\${latency}ms</span>\`;
+                    if (latencyNum > 10) return `<span style="color:${palette.high}; font-weight:600;">${latency}ms</span>`;
+                    if (latencyNum < 1) return `<span style="color:${palette.low}; font-weight:600;">${latency}ms</span>`;
+                    return `<span style="color:${palette.mid}; font-weight:600;">${latency}ms</span>`;
                 }
                 if (value.length > 0) {
                     value = value.replace(/Â/g, '');
@@ -707,7 +731,7 @@ for x in {0..9}; do
                     
                     for (const nvme of nvmes) {
                         if (/Model Number:/.test(nvme[1])) {
-                            nvmeNumber++; 
+                            nvmeNumber++;
                             data[nvmeNumber] = {
                                 Models: [],
                                 Integrity_Errors: [],
@@ -811,11 +835,11 @@ for x in {0..9}; do
                                 for (const nvmeIntegrity_Error of nvme.Integrity_Errors) {
                                     if (nvmeIntegrity_Error != 0) {
                                         output += ' (';
-                                        output += \`0E: \${nvmeIntegrity_Error}-故障！\`;
+                                        output += `0E: ${nvmeIntegrity_Error}-故障！`;
                                         if (nvme.Available_Spares.length > 0) {
                                             output += ', ';
                                             for (const Available_Spare of nvme.Available_Spares) {
-                                                output += \`备用空间: \${Available_Spare}\`;
+                                                output += `备用空间: ${Available_Spare}`;
                                             }
                                         }
                                         output += ')';
@@ -838,7 +862,7 @@ for x in {0..9}; do
                                 if (nvme.Reads.length > 0) {
                                     output += '(';
                                     for (const nvmeRead of nvme.Reads) {
-                                        output += \`已读 \${nvmeRead.replace(/ |,/gm, '')}\`;
+                                        output += `已读 ${nvmeRead.replace(/ |,/gm, '')}`;
                                         output += ')';
                                     }
                                 }
@@ -847,7 +871,7 @@ for x in {0..9}; do
                                     output = output.slice(0, -1);
                                     output += ', ';
                                     for (const nvmeWritten of nvme.Writtens) {
-                                        output += \`已写 \${nvmeWritten.replace(/ |,/gm, '')}\`;
+                                        output += `已写 ${nvmeWritten.replace(/ |,/gm, '')}`;
                                     }
                                     output += ')';
                                 }
@@ -875,15 +899,15 @@ for x in {0..9}; do
                                 output += '读-';
                                 if (nvme.r_kBs.length > 0) {
                                     for (const nvme_r_kB of nvme.r_kBs) {
-                                        var nvme_r_mB = \`\${nvme_r_kB}\` / 1024;
+                                        var nvme_r_mB = `${nvme_r_kB}` / 1024;
                                         nvme_r_mB = nvme_r_mB.toFixed(2);
-                                        output += \`速度 \${colorizeIoSpeed(nvme_r_mB)}\`;
+                                        output += `速度 ${colorizeIoSpeed(nvme_r_mB)}`;
                                     }
                                 }
                                 if (nvme.r_awaits.length > 0) {
                                     output += ', ';
                                     for (const nvme_r_await of nvme.r_awaits) {
-                                        output += \`延迟 \${colorizeIoLatency(nvme_r_await)}\`;
+                                        output += `延迟 ${colorizeIoLatency(nvme_r_await)}`;
                                     }
                                 }
                             }
@@ -895,15 +919,15 @@ for x in {0..9}; do
                                 output += '写-';
                                 if (nvme.w_kBs.length > 0) {
                                     for (const nvme_w_kB of nvme.w_kBs) {
-                                        var nvme_w_mB = \`\${nvme_w_kB}\` / 1024;
+                                        var nvme_w_mB = `${nvme_w_kB}` / 1024;
                                         nvme_w_mB = nvme_w_mB.toFixed(2);
-                                        output += \`速度 \${colorizeIoSpeed(nvme_w_mB)}\`;
+                                        output += `速度 ${colorizeIoSpeed(nvme_w_mB)}`;
                                     }
                                 }
                                 if (nvme.w_awaits.length > 0) {
                                     output += ', ';
                                     for (const nvme_w_await of nvme.w_awaits) {
-                                        output += \`延迟 \${colorizeIoLatency(nvme_w_await)}\`;
+                                        output += `延迟 ${colorizeIoLatency(nvme_w_await)}`;
                                     }
                                 }
                             }
@@ -940,10 +964,6 @@ for x in {0..9}; do
             },
         },
 EOF
-            break
-        fi
-    done
-done
 
 cat >> "$tmpf2" << 'EOF'
         {
@@ -1091,7 +1111,7 @@ if ! [[ "$ln" =~ ^[0-9]+$ ]]; then
 fi
 
 # 应用更改
-sed -i "/$JS_MARKER_START/,/$JS_MARKER_END/d" "$pvemanagerlib"
+sed -i "\|$JS_MARKER_START|,\|$JS_MARKER_END|d" "$pvemanagerlib"
 sed -i "${ln}r $tmpf2" "$pvemanagerlib"
 
 # 验证修改是否成功
@@ -1188,12 +1208,14 @@ calculate_height_increase() {
         total_lines=$((total_lines + sensor_core_lines))
     fi
 
-    # itemId:nvme-status(NVMe硬盘): 固定4行每个
+    # itemId:nvme-status(NVMe硬盘): 单模块显示, 首块占4行, 后续每块额外占5行
     local nvme_count=$(lsblk -d -o NAME | grep -c 'nvme[0-9]')
+    module_count=$((module_count + 1))
     if [ "$nvme_count" -gt 0 ]; then
-        local nvme_lines=$((nvme_count * 4))
+        local nvme_lines=$((4 + (nvme_count - 1) * 5))
         total_lines=$((total_lines + nvme_lines))
-        module_count=$((module_count + nvme_count))
+    else
+        total_lines=$((total_lines + 1))
     fi
 
     # itemId:sata_status(SATA硬盘): 无固定行
