@@ -692,18 +692,6 @@ for x in {0..9}; do
                     if (speedNum < 100) return \`<span style="color:\${palette.low}; font-weight:600;">\${speed}MB/s</span>\`;
                     return \`<span style="color:\${palette.mid}; font-weight:600;">\${speed}MB/s</span>\`;
                 }
-                function formatIoSpeed(kBps) {
-                    const speedNum = parseFloat(kBps);
-                    if (!Number.isFinite(speedNum)) {
-                        return colorizeIoSpeed('0.00');
-                    }
-                    if (speedNum < 1024) {
-                        const formatted = speedNum.toFixed(2);
-                        return \`<span style="color:\${palette.low}; font-weight:600;">\${formatted}kB/s</span>\`;
-                    }
-                    const speedMBps = (speedNum / 1024).toFixed(2);
-                    return colorizeIoSpeed(speedMBps);
-                }
                 function colorizeIoLatency(latency) {
                     const latencyNum = parseFloat(latency);
                     if (latencyNum > 10) return \`<span style="color:\${palette.high}; font-weight:600;">\${latency}ms</span>\`;
@@ -887,7 +875,9 @@ for x in {0..9}; do
                                 output += '读-';
                                 if (nvme.r_kBs.length > 0) {
                                     for (const nvme_r_kB of nvme.r_kBs) {
-                                        output += \`速度 \${formatIoSpeed(nvme_r_kB)}\`;
+                                        var nvme_r_mB = \`\${nvme_r_kB}\` / 1024;
+                                        nvme_r_mB = nvme_r_mB.toFixed(2);
+                                        output += \`速度 \${colorizeIoSpeed(nvme_r_mB)}\`;
                                     }
                                 }
                                 if (nvme.r_awaits.length > 0) {
@@ -905,7 +895,9 @@ for x in {0..9}; do
                                 output += '写-';
                                 if (nvme.w_kBs.length > 0) {
                                     for (const nvme_w_kB of nvme.w_kBs) {
-                                        output += \`速度 \${formatIoSpeed(nvme_w_kB)}\`;
+                                        var nvme_w_mB = \`\${nvme_w_kB}\` / 1024;
+                                        nvme_w_mB = nvme_w_mB.toFixed(2);
+                                        output += \`速度 \${colorizeIoSpeed(nvme_w_mB)}\`;
                                     }
                                 }
                                 if (nvme.w_awaits.length > 0) {
